@@ -1,2 +1,2 @@
 # miniature_graphs
-Codes and documentation for miniaturizing graphs. 
+Code, data and docs for creating miniaturized graphs for social network analysis.

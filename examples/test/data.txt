@@ -1,0 +1,8 @@
+{
+"target_degree": 0.029,
+"target_assort": 0.031,
+"target_clust": 0.6055,
+"degree_weight": 0.0,
+"assort_weight": 0.0,
+"clust_weight": 1.0
+}
