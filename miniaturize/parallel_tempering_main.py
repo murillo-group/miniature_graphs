@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+'''
+@author: buttsdav@msu.edu
+last updated March 2024
+
+Parallel tempering definition
+
+REQUIRES: Metropolis.py
+'''
+
 from mpi4py import MPI
 import numpy as np
 from Metropolis import Metropolis
@@ -92,7 +103,7 @@ for step in range(TOTAL_STEPS):
     # each replica updates its energy
     my_energy[0] = replica.get_energy(**targets_and_weights)
 
-    
+
     assorts[step+1] = (nx.degree_assortativity_coefficient(replica.get_graph())+1)/2
     densitys[step+1] = nx.density(replica.get_graph())
     clusts[step+1] = nx.average_clustering(replica.get_graph())
