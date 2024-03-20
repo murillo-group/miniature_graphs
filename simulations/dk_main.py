@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+'''
+@author: buttsdav@msu.edu
+last updated March 2024
+
+Daley-Kendall test code
+'''
 import networkx as nx
 import numpy as np
 from scipy.sparse import load_npz

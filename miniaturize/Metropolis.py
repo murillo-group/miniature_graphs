@@ -1,10 +1,31 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+'''
+@author: buttsdav@msu.edu
+last updated March 2024
+
+Metropolis-Hastings (MC) definition
+'''
+
 import numpy as np
 import networkx as nx
 from copy import deepcopy
 
 class Metropolis():
-
+    '''
+    This class defines a single Metropolis (MC) replica with inverse temperature
+    beta.
+    parameters
+    ============================================================================
+    beta - float : inverse temperature of replica
+    graph - networkx.Graph : the initial graph the replica will edit
+    '''
     def __init__(self, initial_graph, beta):
+        '''
+        Initializer for MC replica with initial graph `intial_graph` and inverse
+        temperature `beta`. Step is defined to keep track of how many iterations
+        have been performed.
+        '''
         self.beta = beta
         self.graph = deepcopy(initial_graph)
         self.step = 0
@@ -12,11 +33,14 @@ class Metropolis():
 
     def make_change(self, num_changes=1):
         '''
-        This function implements a change in a graph
+        The function implements a change in the replica's graph. In This
+        implementation, 50% of the time an edge is moved, 25% of the time an
+        edge is removed and 25% of the time an edge is added.
         '''
-        # make a deepcopy of the graph to ensure changes to temp_graph are independent of graph
+        # make a deepcopy of the graph to ensure changes to temp_graph are
+        # independent of graph
         temp_graph = deepcopy(self.graph)
-        
+
         # loop through the number of change you want to make
         # note that it is possible that a change could be undone
         # e.g. change one adds an edge then change two adds it back
@@ -55,15 +79,16 @@ class Metropolis():
 
     def energy_fnc(self, graph, **kwargs):
         '''
-        This function defines the loss function for the metropolis algorithm
+        This function defines the loss function for the metropolis algorithm.
+        This implementation aims to match the density,
         '''
         graph_degree = nx.density(graph)
         graph_assort = nx.degree_assortativity_coefficient(graph)
         graph_clust = nx.average_clustering(graph)
-        
+
         # max-min normalization
         graph_assort = (graph_assort+1)/2
-        
+
 
 #         energy = kwargs['degree_weight']*((graph_degree_normalized - kwargs['target_degree'])/kwargs['target_degree'])**2 + kwargs['assort_weight']*((graph_assort_normalized - kwargs['target_assort'])/kwargs['target_assort'])**2 + kwargs['clust_weight']*((graph_clust_normalized - kwargs['target_clust'])/kwargs['target_clust'])**2
         energy = kwargs['degree_weight']*abs((graph_degree - kwargs['target_degree'])) + \
@@ -114,8 +139,8 @@ class Metropolis():
         return self.graph
 
     def get_energy(self, **kwargs):
+        '''
+        This function return the current energy of the replica
+        '''
 
         return self.energy_fnc(self.graph, **kwargs)
-
-
-
