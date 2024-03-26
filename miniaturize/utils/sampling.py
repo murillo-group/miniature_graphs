@@ -6,46 +6,33 @@ import networkx as nx
 import pandas as pd
 import numpy as np
 
-def get_metrics(G):
-    """Return a list of network metrics of the specified graph"""
-    C = nx.average_clustering(G)
-    r = nx.assortativity.degree_assortativity_coefficient(G)
-
-    return [C,r]
-
-def get_name(generator):
-    """Returns the name of the NetworkX generator"""
-    return generator.__name__
-
-def sample_generator(generator,params,n=50):
+def sample_generator(generator,params,metrics,num_samples=10):
     """
-    dict:           Graph generator to be sampled
-    params:         Parameters for the generator
-    n:              Number of samples to be drawn from each parameter combination
+    Samples the specified NetworkX generator 
     """
 
-    metrics = np.zeros((n,2))
-    for i in range(0,n):
-        metrics[i,:] = get_metrics(generator(*params))
+    def get_metrics(G,metrics):
+        """Return a list of network metrics of the specified graph"""
+        return [metric(G) for metric in metrics]
 
-    data = {'name':[get_name(generator)] * n,
-            'm1':metrics[:,0],
-            'm2':metrics[:,1]}
+    # Determine the column names
+    columns = [metric.__name__ for metric in metrics] + ["parameters"]
 
-    return pd.DataFrame(data)
+    # Sample the generator
+    measurements = []
+    for i in range(0,num_samples):
+        # Instantiate graph
+        measurements.append(get_metrics(generator(*params),metrics) + [params])
 
-def grid_sample(generator,params_grid,num_samples=10):
+    return pd.DataFrame(measurements, columns=columns)
+
+def grid_sample(generator,params_grid,metrics,num_samples=10):
     """
-    Samples the specified generator in a grid-like manner
-    generator:      Handle to the generator to sample from
-    params:         parameters to sample from the generator
+    Samples the specified NetworkX generator across a wide range of parameters
     """
 
     # Initialize empty dataframe
     df = pd.DataFrame()
-
-    # Get number of parameters
-    num_parameters = len(params_grid)
 
     # Get dimensions of each parameter array
     shape = [len(param) for param in params_grid]
@@ -59,11 +46,7 @@ def grid_sample(generator,params_grid,num_samples=10):
         params = [params_grid[j][flag] for j,flag in enumerate(idx_local)]
 
         # Sample generator
-        sample = sample_generator(generator,params,num_samples)
-
-        # Append parameters
-        sample['graph_size'] = params[0]
-        sample['parameters'] = [params[1:]] * (num_samples)
+        sample = sample_generator(generator,params,metrics,num_samples)
 
         # Append to existing dataframe
         df = pd.concat([df,sample],)
