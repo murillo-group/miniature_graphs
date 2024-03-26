@@ -1,14 +1,20 @@
+"""
+Random Graph Sampling functions for Miniaturize
+"""
+
 import networkx as nx
 import pandas as pd
 import numpy as np
 
 def get_metrics(G):
+    """Return a list of network metrics of the specified graph"""
     C = nx.average_clustering(G)
     r = nx.assortativity.degree_assortativity_coefficient(G)
 
     return [C,r]
 
 def get_name(generator):
+    """Returns the name of the NetworkX generator"""
     return generator.__name__
 
 def sample_generator(generator,params,n=50):
