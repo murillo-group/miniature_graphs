@@ -1,3 +1,7 @@
+import networkx as nx
+import pandas as pd
+import numpy as np
+
 def get_metrics(G):
     C = nx.average_clustering(G)
     r = nx.assortativity.degree_assortativity_coefficient(G)
