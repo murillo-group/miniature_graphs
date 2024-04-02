@@ -26,18 +26,17 @@ directory_name = sys.argv[1]
 if not os.path.exists('./Results/'+directory_name+'SIR/'):
     os.makedirs('./Results/'+directory_name+'SIR/',exist_ok=True)
 
-print(glob.glob('../simulations/Results/'+directory_name+'/SIR/*'))
+files = glob.glob('../simulations/Results/'+directory_name+'/SIR/*')
 
-for file in glob.glob('../simulations/Results/'+directory_name+'/SIR/*'):
+all_data = np.zeros((len(files),3))
+
+for i,file in enumerate(files):
     arr = np.load(file)
-    plt.plot(arr[:,0],c='C0',alpha=.5)
-    plt.plot(arr[:,1],c='C1',alpha=.5)
-    plt.plot(arr[:,2],c='C2',alpha=.5)
-plt.show()
+    all_data[i] = arr[-1]
+
 
 # print(arr)
 
 # arr = np.load('../simulations/Results/example_graph/graph.npz_SIR/run_2024_04_01_12_24_16_240273.npy')
-
 
 # plt.show()
