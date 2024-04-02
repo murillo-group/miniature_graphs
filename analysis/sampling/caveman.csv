@@ -1,5 +1,0 @@
-Generator,get_size,density,average_clustering,degree_assortativity_coefficient,parameters
-my_caveman,1000,1.0,1.0,,"[1000, 1]"
-my_caveman,1000,0.4994994994994995,1.0,,"[1000, 2]"
-my_caveman,1000,0.1991991991991992,1.0,,"[1000, 5]"
-my_caveman,1000,0.0990990990990991,1.0,,"[1000, 10]"
