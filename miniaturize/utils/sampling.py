@@ -16,13 +16,15 @@ def sample_generator(generator,params,metrics,num_samples=10):
         return [metric(G) for metric in metrics]
 
     # Determine the column names
-    columns = [metric.__name__ for metric in metrics] + ["parameters"]
+    columns = ["Generator"] + [metric.__name__ for metric in metrics] + ["parameters"]
 
     # Sample the generator
     measurements = []
     for i in range(0,num_samples):
+        # Store data
+        data = [generator.__name__] + get_metrics(generator(*params),metrics) + [params]
         # Instantiate graph
-        measurements.append(get_metrics(generator(*params),metrics) + [params])
+        measurements.append(data)
 
     return pd.DataFrame(measurements, columns=columns)
 
@@ -49,6 +51,6 @@ def grid_sample(generator,params_grid,metrics,num_samples=10):
         sample = sample_generator(generator,params,metrics,num_samples)
 
         # Append to existing dataframe
-        df = pd.concat([df,sample],)
+        df = pd.concat([df,sample],ignore_index=True)
 
-    return df.reset_index()
+    return df
