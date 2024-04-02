@@ -13,6 +13,10 @@ echo python sir_analyze.py example_graph/ graph.npz
 
 python ../analysis/sir_analyze.py example_graph/ graph.npz
 
-echo python ../plot/sir_plot.py
+echo python ../plot/sir_plot.py example_graph/
 
-python ../plot/sir_plot.py
+python ../plot/sir_plot.py example_graph/
+
+echo python ../plot/dk_plot.py example_graph/
+
+python ../plot/dk_plot.py example_graph/
