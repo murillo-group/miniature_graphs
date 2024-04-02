@@ -50,8 +50,6 @@ N = A.shape[0]
 MAX_ITERS = 200
 # infection parameter for SIR model (these depend on the number of agents)
 BETA = 20/N
-# recovery parameter for SIR model (these depend on the number of agents)
-GAMMA = 20/N
 
 # create a dictionary storing the neighbors of each rank
 neighbors = {}
@@ -107,21 +105,24 @@ while step < MAX_ITERS:
         # iterate over infected nodes neighbors
         for neighbor_id in neighbors[spreader_id]:
             # test for interaction
-            if BETA > np.random.uniform(0,1):
+            if BETA > np.random.uniform(0,1) and temp_states[spreader_id] == 1:
+
+                neighbor_state_ = np.copy(states[neighbor_id])
 
                 # if a spreader and ignorant interact ignorant becomes spreader
-                if temp_states[neighbor_id] == 0:
+                if neighbor_state_ == 0:
                     temp_states[neighbor_id] = 1
                     num_i -= 1
                     num_s += 1
                 # if a spreader and spreader interact both become zealots
-                if temp_states[neighbor_id] == 1:
+                elif neighbor_state_ == 1:
                     temp_states[spreader_id] = 2
                     temp_states[neighbor_id] = 2
                     num_s -= 2
                     num_z += 2
+
                 # if a spreader and zealot interact spreader becomes zealot
-                if temp_states[neighbor_id] == 2:
+                elif neighbor_state_ == 2:
                     temp_states[spreader_id] = 2
                     num_s -= 1
                     num_z += 1
