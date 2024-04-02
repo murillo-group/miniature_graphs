@@ -2,11 +2,15 @@
 # -*- coding: utf-8 -*-
 '''
 @author: buttsdav@msu.edu
-last updated March 2024
+last updated April 2024
 
 Parallel tempering definition
 
 REQUIRES: Metropolis.py
+
+to run:
+
+mpiexec -n $number_of_nodes python parallel_tempering_main.py
 '''
 
 from mpi4py import MPI
