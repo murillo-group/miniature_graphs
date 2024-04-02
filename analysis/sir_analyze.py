@@ -23,10 +23,10 @@ directory_name = sys.argv[1]
 # graph_name = sys.argv[2]
 #
 # make directory if it hasn't been made yet
-if not os.path.exists('./Results/'+directory_name+'SIR/'):
-    os.makedirs('./Results/'+directory_name+'SIR/',exist_ok=True)
+if not os.path.exists('../results/'+directory_name+'SIR/'):
+    os.makedirs('../results/'+directory_name+'SIR/',exist_ok=True)
 
-files = glob.glob('../simulations/Results/'+directory_name+'/SIR/*')
+files = glob.glob('../results/'+directory_name+'/SIR/*')
 
 all_data = np.zeros((len(files),3))
 
