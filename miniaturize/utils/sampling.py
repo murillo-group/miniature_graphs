@@ -54,3 +54,8 @@ def grid_sample(generator,params_grid,metrics,num_samples=10):
         df = pd.concat([df,sample],ignore_index=True)
 
     return df
+
+def my_caveman(n,l):
+    k = int(n / l)
+
+    return nx.caveman_graph(l,k)
