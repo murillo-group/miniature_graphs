@@ -10,3 +10,7 @@ from miniaturize.Metropolis import *
 
 # Import utilities
 from miniaturize.utils import * 
+
+from importlib.util import find_spec
+
+MINIATURIZE_DIR=find_spec('miniaturize').submodule_search_locations[0]

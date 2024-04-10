@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import functools
 
+# Define environment variables
+STYLE_SHEET_DIR=""
+
 def labels(axs):
     if np.shape(axs) == ():
         axs.set_title('Y-Axis vs. X-Axis')
