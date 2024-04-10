@@ -1,3 +1,4 @@
+generator,time,memory,nodes,param1,param2,param3
 gnp_random_graph,13.3171,173.535616,5000,0.1
 gnp_random_graph,11.0359,345.76944,5000,0.2
 gnp_random_graph,15.5322,609.939096,5000,0.30000000000000004
