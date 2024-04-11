@@ -1,0 +1,8 @@
+{
+    "Graph name": "twitch_gamers/original",
+    "metrics": {
+        "density": 0.00048103610439398153,
+        "avg_clustering": 0.1599249933088565,
+        "degree_assortativity": -0.08685715954864272
+    }
+}
