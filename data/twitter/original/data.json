@@ -1,0 +1,10 @@
+{
+    "Graph name": "twitter/original",
+    "num_nodes": 404000,
+    "num_edges": 713000,
+    "metrics": {
+        "density": 0.00000870979,
+        "avg_clustering": 0.0144463,
+        "degree_assortativity": -0.876372
+    }
+}
