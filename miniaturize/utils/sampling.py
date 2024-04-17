@@ -56,6 +56,9 @@ def grid_sample(generator,params_grid,metrics,num_samples=10):
     return df
 
 def my_caveman(n,l):
+    """
+    Custom version of the caveman graph 
+    """
     k = int(n / l)
 
     return nx.caveman_graph(l,k)
