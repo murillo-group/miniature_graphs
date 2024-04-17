@@ -1,0 +1,10 @@
+{
+    "Graph name": "facebook_msu/original",
+    "num_nodes": 32375,
+    "num_edges": 1118774,
+    "metrics": {
+        "density": 0.0021348443731837815,
+        "avg_clustering": 0.20415316780626622,
+        "degree_assortativity": 0.00904746495752831
+    }
+}
