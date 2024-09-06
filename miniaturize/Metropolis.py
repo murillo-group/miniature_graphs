@@ -30,17 +30,14 @@ class Metropolis():
         self.graph = deepcopy(initial_graph)
         self.step = 0
 
-
     def make_change(self, num_changes=1):
         '''
-        The function implements a change in the replica's graph. In This
-        implementation, 50% of the time an edge is moved, 25% of the time an
-        edge is removed and 25% of the time an edge is added.
+        This function implements a change in a graph\
         '''
         # make a deepcopy of the graph to ensure changes to temp_graph are
         # independent of graph
         temp_graph = deepcopy(self.graph)
-
+        
         # loop through the number of change you want to make
         # note that it is possible that a change could be undone
         # e.g. change one adds an edge then change two adds it back
@@ -57,11 +54,11 @@ class Metropolis():
             # move an edge half of the time
             if np.random.uniform(0,1) < .5:
 
-                # add the non-existant edge and remove the old edge. This is equal to moving an edge
+                # add the non-existant edge and remove the old edge. This is equal to moving an edge\
                 temp_graph.add_edge(new_node_one, new_node_two)
                 temp_graph.remove_edge(old_node_one, old_node_two)
 
-            # add or remove an edge the other half of the time
+            # add or remove an edge the other half of the time\
             else:
                 # add and edge half of the time
                 if np.random.uniform(0,1) < .5:
@@ -85,10 +82,10 @@ class Metropolis():
         graph_degree = nx.density(graph)
         graph_assort = nx.degree_assortativity_coefficient(graph)
         graph_clust = nx.average_clustering(graph)
-
-        # max-min normalization
-        graph_assort = (graph_assort+1)/2
-
+        
+        # max-min normalization\
+        graph_assort = (graph_assort+1)/2\
+        
 
 #         energy = kwargs['degree_weight']*((graph_degree_normalized - kwargs['target_degree'])/kwargs['target_degree'])**2 + kwargs['assort_weight']*((graph_assort_normalized - kwargs['target_assort'])/kwargs['target_assort'])**2 + kwargs['clust_weight']*((graph_clust_normalized - kwargs['target_clust'])/kwargs['target_clust'])**2
         energy = kwargs['degree_weight']*abs((graph_degree - kwargs['target_degree'])) + \
@@ -126,7 +123,7 @@ class Metropolis():
             self.graph = deepcopy(changed_graph)
 
             # if not self.step % 1:
-                # print(f'Updated graph metrics\nAve. Degree: {2*self.graph.number_of_edges()/self.graph.number_of_nodes()}, Assortativity: {nx.degree_assortativity_coefficient(self.graph)}, Clustering: {nx.average_clustering(self.graph)}\n')
+                # print(f'Updated graph metrics\\nAve. Degree: \{2*self.graph.number_of_edges()/self.graph.number_of_nodes()\}, Assortativity: \{nx.degree_assortativity_coefficient(self.graph)\}, Clustering: {nx.average_clustering(self.graph)\}\\n')
 
 
         self.step += 1
