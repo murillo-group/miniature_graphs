@@ -30,13 +30,19 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.size
 
+directory_name = sys.argv[1]
+graph_name = sys.argv[2]
+
+
+##TODO: Fix all directories
+
 # rank zero makes directory if it hasn't been made yet
 if rank == 0:
-    if not os.path.exists('./Results/graphs/'):
-        os.makedirs('./Results/graphs/',exist_ok=True)
+    if not os.path.exists('../data/'+directory_name):
+        os.makedirs('../data/'+directory_name,exist_ok=True)
 
-    if not os.path.exists('./Results/run_data/'):
-        os.makedirs('./Results/run_data/',exist_ok=True)
+    if not os.path.exists('../results/'+directory_name+'/mini_data/'):
+        os.makedirs('../results/'+directory_name+'/mini_data/',exist_ok=True)
 
 
 if size%2:
@@ -57,10 +63,10 @@ init_beta = np.array([1.90472625, 1.53273078, 1.16073531, 0.78873985, 0.41674438
 my_beta = np.array([init_beta],dtype=np.float64)
 
 STEPS_PER_TEMP_SWAP = 20#int(sys.argv[4])
-TOTAL_STEPS = 20000
+TOTAL_STEPS = 100
 
 # load the file with attribute data
-with open(sys.argv[1],'r') as json_file:
+with open('../data/'+directory_name+'/data.txt','r') as json_file:
    targets_and_weights = json.load(json_file)
 
 
@@ -188,22 +194,12 @@ if rank == min_energy_core['rank']:
 
     # create a file that doesn't exist yet
     counter = 0
-    filename = "./Results/graphs/"+sys.argv[1]+'_'+str(my_beta)+"_graph{}.npz"
-    while os.path.isfile(filename.format(counter)):
-        counter += 1
-    filename = filename.format(counter)
+    filename = "../data/"+directory_name+"/"+graph_name+'_mini'
     # save the adjacency matrix corresponding to the minimum energy
     save_npz(filename, nx.adjacency_matrix(replica.get_graph()))
 
-
-
-counter = 0
-filename = "./Results/run_data/assorts_"+str(init_beta)+"_{}.npz"
-while os.path.isfile(filename.format(counter)):
-    counter += 1
-
-np.save('Results/run_data/assorts_'+str(init_beta)+'_'+str(counter),assorts)
-np.save('Results/run_data/densitys_'+str(init_beta)+'_'+str(counter),densitys)
-np.save('Results/run_data/clusts_'+str(init_beta)+'_'+str(counter),clusts)
-np.save('Results/run_data/energys_'+str(init_beta)+'_'+str(counter),energys)
-np.save('Results/run_data/betas_'+str(init_beta)+"_"+str(counter),betas)
+np.save('../results/'+directory_name+'/mini_data/assorts',assorts)
+np.save('../results/'+directory_name+'/mini_data/densitys',densitys)
+np.save('../results/'+directory_name+'/mini_data/clusts',clusts)
+np.save('../results/'+directory_name+'/mini_data/energys',energys)
+np.save('../results/'+directory_name+'/mini_data/betas',betas)
