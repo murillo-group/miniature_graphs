@@ -31,13 +31,13 @@ directory_name = sys.argv[1]
 graph_name = sys.argv[2]
 
 # make directory if it hasn't been made yet
-if not os.path.exists('../results/'+directory_name+'DK/'):
-    os.makedirs('../results/'+directory_name+'DK/',exist_ok=True)
+if not os.path.exists('../results/'+directory_name+'/DK/'):
+    os.makedirs('../results/'+directory_name+'/DK/',exist_ok=True)
 
 
 # load the adjacency matrix for graph that the model will run on
 # it is assumed that the graph will be an scipy.sparse matrix
-A = load_npz('../data/'+directory_name+graph_name)
+A = load_npz('../data/'+directory_name+'/'+graph_name)
 
 # find the number of agents in the graph
 N = A.shape[0]
@@ -141,7 +141,7 @@ while step < MAX_ITERS:
         trajectory[step:] = trajectory[step]
         break
 
-np.save('../results/'+directory_name+'DK/run_'+datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S_%f'),trajectory)
+np.save('../results/'+directory_name+'/DK/run_'+datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S_%f'),trajectory)
 # # print(step)
 # print(states)
 # print(sys.argv[1]+'_sir')

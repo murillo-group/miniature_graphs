@@ -36,13 +36,13 @@ directory_name = sys.argv[1]
 graph_name = sys.argv[2]
 
 # make directory if it hasn't been made yet
-if not os.path.exists('../results/'+directory_name+'SIR/'):
-    os.makedirs('../results/'+directory_name+'SIR/',exist_ok=True)
+if not os.path.exists('../results/'+directory_name+'/SIR/'):
+    os.makedirs('../results/'+directory_name+'/SIR/',exist_ok=True)
 
 
 # load the adjacency matrix for graph that the model will run on
 # it is assumed that the graph will be an scipy.sparse matrix
-A = load_npz('../data/'+directory_name+graph_name)
+A = load_npz('../data/'+directory_name+'/'+graph_name)
 
 # find the number of agents in the graph
 N = A.shape[0]
@@ -52,7 +52,7 @@ N = A.shape[0]
 ####################
 
 # maximum allowed iterations
-MAX_ITERS = 200
+MAX_ITERS = 2000
 # infection parameter for SIR model (these depend on the number of agents)
 BETA = 20/N
 # recovery parameter for SIR model (these depend on the number of agents)
@@ -138,7 +138,7 @@ while step < MAX_ITERS:
     if num_i == 0:
         trajectory[step:] = trajectory[step]
         break
-
-np.save('../results/'+directory_name+'SIR/run_'+datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S_%f'),trajectory)
+trajectory/=N
+np.save('../results/'+directory_name+'/SIR/run_'+datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S_%f'),trajectory)
 # print(trajectory,np.sum(trajectory,axis=1))
 # print(sys.argv[1]+'_sir')
