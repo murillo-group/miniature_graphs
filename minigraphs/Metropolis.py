@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-'''
-@author: buttsdav@msu.edu
-last updated March 2024
+'''A module to miniaturize graphs using a Metropolis-Hastings annealer
 
-Metropolis-Hastings (MC) definition
+    - Author: David J. Butts
+    - Date created: March 2024
+    - Date Last Modified: September 2024
 '''
 
 import numpy as np
@@ -12,14 +10,13 @@ import networkx as nx
 from copy import deepcopy
 
 class Metropolis():
+    '''An MH-based annealer to miniaturize a graph
+    
+    Attritubes:
+        - graph: A NetworkX graph object to optimize
+        - beta:  The initial inverse temperature of the replica
     '''
-    This class defines a single Metropolis (MC) replica with inverse temperature
-    beta.
-    parameters
-    ============================================================================
-    beta - float : inverse temperature of replica
-    graph - networkx.Graph : the initial graph the replica will edit
-    '''
+
     def __init__(self, initial_graph, beta):
         '''
         Initializer for MC replica with initial graph `intial_graph` and inverse
