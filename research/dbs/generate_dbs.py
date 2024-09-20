@@ -3,20 +3,12 @@
 
 import os
 import glob
+import sys
 import pandas as pd 
+from pandas.api.types import is_string_dtype as is_string
 import numpy as np
 
-DATA_DIR = os.path.join(os.getenv('DATA_DIR'),'databases')
-
-'''
-files = glob.iglob(".txt",root_dir=DATA_DIR)
-for file in files:
-    df = pandas
-'''
-
-DIR = os.path.join(DATA_DIR,'social')
-
-def read_dbs(path):
+def read_csv(path):
     def checkfiles(sublist,list):
         return set(sublist) <= set(list)
     
@@ -72,13 +64,22 @@ def format_dbs(df):
         return pd.to_numeric(df.iloc[:,0],errors='coerce') * s
 
     for column in df.columns[1:]:
-        df[column] = to_numeric(df[column])
+        if is_string(df[column]):
+            df[column] = to_numeric(df[column])
 
-df = read_dbs(DIR)
-format_dbs(df)
-df.to_csv(os.path.join(DIR,"df.csv"),sep=",")
 
-print(df)
+DATA_DIR = os.path.join(os.getenv('DATA_DIR'),'databases')
+names = sys.argv[1:]
+
+for name in names:
+    DIR = os.path.join(DATA_DIR,name)
+
+    df = read_csv(DIR)
+    format_dbs(df)
+    df.to_csv(os.path.join(DIR,"df.csv"),sep=",",index=False)
+
+    print(f"Generated {name} database\n")
+    print(df)
 
 
     
