@@ -74,8 +74,15 @@ names = sys.argv[1:]
 for name in names:
     DIR = os.path.join(DATA_DIR,name)
 
+    # Reat DataFrame
     df = read_csv(DIR)
+
+    # Format DataFrame
     format_dbs(df)
+
+    #TODO: Process DataFrame
+
+    # Save DataFrame
     df.to_csv(os.path.join(DIR,"df.csv"),sep=",",index=False)
 
     print(f"Generated {name} database\n")
