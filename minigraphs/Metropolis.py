@@ -7,134 +7,220 @@
 
 import numpy as np
 import networkx as nx
+import pandas as pd
 from copy import deepcopy
 
 class Metropolis():
     '''An MH-based annealer to miniaturize a graph
     
     Attritubes:
-        - graph: A NetworkX graph object to optimize
-        - beta:  The initial inverse temperature of the replica
+        - metrics_dict: A dictionary of function handles used by the annealer to
+          calculate the functio metrics
+          
+        - beta: The initial inverse temperature of the replica
+        
+        - graph_: The generated miniature
     '''
 
-    def __init__(self, initial_graph, beta):
+    def __init__(self,
+                 beta: float, 
+                 metrics_funcs,
+                 n_iterations: int,
+                 metrics_weights=None,
+                 n_changes: int = 10,
+                 func_loss = None,
+                 ):
+        '''Instantiates the MH annealer
         '''
-        Initializer for MC replica with initial graph `intial_graph` and inverse
-        temperature `beta`. Step is defined to keep track of how many iterations
-        have been performed.
-        '''
+        # Store inverse temperature
         self.beta = beta
-        self.graph = deepcopy(initial_graph)
-        self.step = 0
-
-    def make_change(self, num_changes=1):
+        
+        # Store metrics functions
+        self.metrics_funcs = metrics_funcs
+        
+        # Store metrics names
+        self.metrics = metrics_funcs.keys()
+        
+        # Store number of iterations
+        self.n_iterations = n_iterations
+        
+        # Store weights
+        if metrics_weights is None:
+            weights = {key: 1.0 for key in self.metrics}
+        else:
+            weights = metrics_weights
+            
+        self.metrics_weights = weights
+        
+        # Store number of changes per step
+        self.n_changes = n_changes
+        
+        # Store loss function
+        if func_loss is None:
+            self.func_loss = lambda weights, metrics_diff: np.sum(weights * np.abs(metrics_diff))
+        else:
+            self.func_loss = func_loss
+            
+        # Update number of state variables
+        self.__n_states = len(self.metrics)
+        
+        # Message
+        print(self)
+        
+    def __metrics(self, graph):
+        '''Calculates the metrics of a graph
         '''
-        This function implements a change in a graph\
+        # Calculate graph metrics
+        metrics = []
+        
+        for func in self.__metrics_funcs:
+            try:
+                metric = func(self.graph_)
+                
+                if not((type(metric) is int) or (type(metric) is float)):
+                    raise(TypeError)
+                
+                metrics.append(metric)
+                
+            except TypeError:
+                print("Metric produced non-scalar result: ")
+                print(metric)
+                
+        return metrics
+            
+    def __energy(self, metrics):
+        '''Energy of the graph with respect to target metrics
+        '''
+        diff = self.__metrics_targets - metrics
+        energy = self.func_loss(self.__weights,diff)
+        
+        return energy
+        
+    def __make_change(self):
+        '''Implements changes in a graph
         '''
         # make a deepcopy of the graph to ensure changes to temp_graph are
         # independent of graph
-        temp_graph = deepcopy(self.graph)
+        temp_graph = deepcopy(self.graph_)
         
         # loop through the number of change you want to make
         # note that it is possible that a change could be undone
         # e.g. change one adds an edge then change two adds it back
-        for changes in range(num_changes):
+        for i in range(self.n_changes):
             non_edges = list(nx.non_edges(temp_graph))
             edges = list(nx.edges(temp_graph))
 
             # select a random edge that does not exist in the graph
-            new_node_one, new_node_two = non_edges[np.random.randint(len(non_edges))]
+            edge_new = non_edges[np.random.randint(len(non_edges))]
 
             # select a random edge that exists in the graph
-            old_node_one, old_node_two = edges[np.random.randint(len(edges))]
+            edge_old = edges[np.random.randint(len(edges))]
 
             # move an edge half of the time
             if np.random.uniform(0,1) < .5:
 
-                # add the non-existant edge and remove the old edge. This is equal to moving an edge\
-                temp_graph.add_edge(new_node_one, new_node_two)
-                temp_graph.remove_edge(old_node_one, old_node_two)
+                # add the non-existant edge and remove the old edge. This is equal to moving an edge
+                temp_graph.add_edge(edge_new[0], edge_new[1])
+                temp_graph.remove_edge(edge_old[0], edge_old[1])
 
-            # add or remove an edge the other half of the time\
+            # add or remove an edge the other half of the time
             else:
-                # add and edge half of the time
                 if np.random.uniform(0,1) < .5:
-
                     # add a non-existant edge to the graph
-                    temp_graph.add_edge(new_node_one, new_node_two)
-
-                # remove an edge the other half of the time
+                    temp_graph.add_edge(edge_new[0], edge_new[1])
                 else:
-
                     # remove an edge from the graph
-                    temp_graph.remove_edge(old_node_one, old_node_two)
+                    temp_graph.remove_edge(edge_old[0], edge_old[1])
 
         return temp_graph
+    
+    def __accept_change(self,E0: float, E1:float) -> bool:
+        '''Accepts proposed change according to the Metropolis ratio
+        '''
+        # Calculate Boltzmann Ratio 
+        prob = np.exp((E0-E1)*self.beta)
+    
+        return prob >= np.random.uniform(0,1)
 
-    def energy_fnc(self, graph, **kwargs):
+            
+    def transform(self, graph_seed, metrics_target,verbose=False) -> None:
+        '''Miniaturizes seed graph
         '''
-        This function defines the loss function for the metropolis algorithm.
-        This implementation aims to match the density,
-        '''
-        graph_degree = nx.density(graph)
-        graph_assort = nx.degree_assortativity_coefficient(graph)
-        graph_clust = nx.average_clustering(graph)
+        def step():
+            # Change the graph
+            graph_new = self.__make_change()
+            
+            # Retrieve energy of the current graph
+            E0 = self.__E0
+
+            # Calculate metrics and energy of the new graph
+            m1 = self.__metrics(graph_new)
+            E1 = self.__energy(m1)
+            
+            # Check for change
+            if self.__accept_change(E0, E1):
+                # Update current graph, metrics and energy
+                self.graph_ = graph_new
+                self.__m0 = m1
+                self.__E0 = E1
         
-        # max-min normalization\
-        graph_assort = (graph_assort+1)/2\
+        def get_state():
+            state = np.zeros((self.__n_states+1,))
+            
+            # Store current graph state
+            state[0] = self.__E0
+            state[1:(self.__n_states+1)] = self.__m0
+            
+            return state
+
+        # Verify matching keys for functions, weights, and metrics
+        try:
+            keys = self.metrics_weights.keys()
+            if keys == metrics_target.keys() == metrics_target.keys():
+                # Initialize internal variables
+                self.__metrics_funcs = [self.metrics_funcs[key] for key in keys]
+                self.__weights = np.array([self.metrics_weights[key] for key in keys])
+                self.__metrics_targets = np.array([metrics_target[key] for key in keys])
+                
+            else:
+                raise(LookupError)
         
-
-#         energy = kwargs['degree_weight']*((graph_degree_normalized - kwargs['target_degree'])/kwargs['target_degree'])**2 + kwargs['assort_weight']*((graph_assort_normalized - kwargs['target_assort'])/kwargs['target_assort'])**2 + kwargs['clust_weight']*((graph_clust_normalized - kwargs['target_clust'])/kwargs['target_clust'])**2
-        energy = kwargs['degree_weight']*abs((graph_degree - kwargs['target_degree'])) + \
-                 kwargs['assort_weight']*abs((graph_assort - kwargs['target_assort'])) + \
-                 kwargs['clust_weight']*abs((graph_clust - kwargs['target_clust']))
-
-        return energy
-
-    def metropolis_check(self, energy_before, energy_after):
-        '''
-        This function decides whether a change is kept or discarded based on the losses. Here, loss_a is the the
-        '''
-        # This checks if the change should be implemented, and returns True if so
-        if np.exp((energy_before-energy_after)*self.beta) > np.random.uniform(0,1):
-            return True
-        # if the if statement misses, return False
-        return False
-
-    def run_step(self,targets_and_weights,num_changes=1):
-
-        # change the graph
-        changed_graph = self.make_change(num_changes)
-
-        # check the energy of the current graph
-        current_energy = self.energy_fnc(self.graph, **targets_and_weights)
-        # print(current_energy)
-
-        # check the energy of the chagned graph
-        changed_energy = self.energy_fnc(changed_graph, **targets_and_weights)
-        # print(changed_energy)
-
-        # up the metropolis creteria to decide if the change should be made
-        if self.metropolis_check(current_energy, changed_energy):
-            # deepcopy the changed graph into the current graph
-            self.graph = deepcopy(changed_graph)
-
-            # if not self.step % 1:
-                # print(f'Updated graph metrics\\nAve. Degree: \{2*self.graph.number_of_edges()/self.graph.number_of_nodes()\}, Assortativity: \{nx.degree_assortativity_coefficient(self.graph)\}, Clustering: {nx.average_clustering(self.graph)\}\\n')
-
-
-        self.step += 1
-        # update beta
-        # self.beta = beta_update(beta,step)
-
-    def get_graph(self):
-        '''This function returns the graph'''
-
-        return self.graph
-
-    def get_energy(self, **kwargs):
-        '''
-        This function return the current energy of the replica
-        '''
-
-        return self.energy_fnc(self.graph, **kwargs)
+           
+        except LookupError:
+            print('Keys of functions, weights, or target metrics do not match.')
+            
+        # Initialize graph
+        self.graph_ = graph_seed
+        
+        # Calculate graph metrics and energy
+        self.__m0 = self.__metrics(self.graph_)
+        self.__E0 = self.__energy(self.__m0)
+        
+        # Initialize trajectories
+        self.trajectories_ = np.zeros((self.n_iterations+1,self.__n_states+1))
+        self.trajectories_[0] = get_state()
+        
+        # Iterate
+        for iter in range(self.n_iterations):
+            if verbose is True:
+                print(f"Iteration {iter+1}/{self.n_iterations}\n")
+                
+            step()
+            self.trajectories_[iter+1] = get_state()
+            
+        # Store trajectories as DataFrame
+        self.trajectories_ = pd.DataFrame(self.trajectories_,
+                                          columns=['Energy']+list(self.metrics))
+        
+    def __str__(self):
+        str = "Metropolis-Hastings Annealer\n" + \
+              f"    beta: {self.beta}\n" + \
+              f"    n_iterations: {self.n_iterations}\n" + \
+               "    metrics:\n "
+              
+        return str
+            
+        
+        
+        
+            
