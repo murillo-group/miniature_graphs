@@ -9,6 +9,7 @@ import numpy as np
 import networkx as nx
 import pandas as pd
 from copy import deepcopy
+from scipy.special import comb
 
 class Metropolis():
     '''An MH-based annealer to miniaturize a graph
@@ -27,7 +28,7 @@ class Metropolis():
                  metrics_funcs,
                  n_iterations: int,
                  metrics_weights=None,
-                 n_changes: int = 10,
+                 n_changes: int = 1,
                  func_loss = None,
                  ):
         '''Instantiates the MH annealer
@@ -99,39 +100,37 @@ class Metropolis():
     def __make_change(self):
         '''Implements changes in a graph
         '''
-        # make a deepcopy of the graph to ensure changes to temp_graph are
-        # independent of graph
+        # Make deep copy
         temp_graph = deepcopy(self.graph_)
         
-        # loop through the number of change you want to make
-        # note that it is possible that a change could be undone
-        # e.g. change one adds an edge then change two adds it back
-        for i in range(self.n_changes):
-            non_edges = list(nx.non_edges(temp_graph))
-            edges = list(nx.edges(temp_graph))
-
-            # select a random edge that does not exist in the graph
-            edge_new = non_edges[np.random.randint(len(non_edges))]
-
-            # select a random edge that exists in the graph
-            edge_old = edges[np.random.randint(len(edges))]
-
-            # move an edge half of the time
-            if np.random.uniform(0,1) < .5:
-
-                # add the non-existant edge and remove the old edge. This is equal to moving an edge
-                temp_graph.add_edge(edge_new[0], edge_new[1])
-                temp_graph.remove_edge(edge_old[0], edge_old[1])
-
-            # add or remove an edge the other half of the time
+        # Propose changes
+        changes = np.random.randint(0,3,size=self.n_changes)
+        
+        for change in changes:
+            if change == 0:
+                # Add edge
+                edges = list(nx.non_edges(temp_graph))
+                idx = np.random.randint(0,len(edges))
+                
+                temp_graph.add_edge(*edges[idx])
+                
+            elif change == 1:
+                # Remove edge
+                edges = list(nx.edges(temp_graph))
+                idx = np.random.randint(0,len(edges))
+                
+                temp_graph.remove_edge(*edges[idx])
+                
             else:
-                if np.random.uniform(0,1) < .5:
-                    # add a non-existant edge to the graph
-                    temp_graph.add_edge(edge_new[0], edge_new[1])
-                else:
-                    # remove an edge from the graph
-                    temp_graph.remove_edge(edge_old[0], edge_old[1])
-
+                edges = list(nx.edges(temp_graph))
+                non_edges = list(nx.non_edges(temp_graph))
+                
+                idx_edge = np.random.randint(0,len(edges))
+                idx_non_edge = np.random.randint(0,len(non_edges))
+                
+                temp_graph.remove_edge(*edges[idx_edge])
+                temp_graph.add_edge(*non_edges[idx_non_edge])
+                
         return temp_graph
     
     def __accept_change(self,E0: float, E1:float) -> bool:
