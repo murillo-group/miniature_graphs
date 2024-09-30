@@ -76,7 +76,7 @@ class Metropolis():
         
         for func in self.__metrics_funcs:
             try:
-                metric = func(self.graph_)
+                metric = func(graph)
                 
                 if not((type(metric) is int) or (type(metric) is float)):
                     raise(TypeError)
@@ -196,11 +196,11 @@ class Metropolis():
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        self.trajectories_ = np.zeros((self.n_iterations+1,self.__n_states+1))
+        self.trajectories_ = np.zeros((self.n_iterations,self.__n_states+1))
         self.trajectories_[0] = get_state()
         
         # Iterate
-        for iter in range(self.n_iterations):
+        for iter in range(self.n_iterations-1):
             if verbose is True:
                 print(f"Iteration {iter+1}/{self.n_iterations}\n")
                 
