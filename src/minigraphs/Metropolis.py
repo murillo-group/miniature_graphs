@@ -211,28 +211,3 @@ class Metropolis():
         # Store trajectories as DataFrame
         self.trajectories_ = pd.DataFrame(self.trajectories_,
                                           columns=['Energy']+list(self.metrics))
-        
-    def explore(self,n_vertices,verbose=False):
-        '''Explore the energy landscape
-        '''
-        metrics_target = {key:0 for key in self.metrics}
-        graph = nx.erdos_renyi_graph(n_vertices,0.01)
-        
-        beta_old = self.beta
-        self.beta = 0
-        self.transform(graph, metrics_target,verbose=verbose)
-        self.beta = beta_old
-        
-        
-    def __str__(self):
-        str = "Metropolis-Hastings Annealer\n" + \
-              f"    beta: {self.beta}\n" + \
-              f"    n_iterations: {self.n_iterations}\n" + \
-               "    metrics:\n "
-              
-        return str
-            
-        
-        
-        
-            
