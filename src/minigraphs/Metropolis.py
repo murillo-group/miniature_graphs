@@ -67,7 +67,7 @@ class Metropolis():
         # Message
         print(self)
         
-    def __metrics(self, graph):
+    def __get_metrics(self, graph):
         '''Calculates the metrics of a graph
         '''
         # Calculate graph metrics
@@ -154,7 +154,7 @@ class Metropolis():
             E0 = self.__E0
 
             # Calculate metrics and energy of the new graph
-            m1 = self.__metrics(graph_new)
+            m1 = self.__get_metrics(graph_new)
             E1 = self.__energy(m1)
             
             # Check for change
@@ -193,7 +193,7 @@ class Metropolis():
         self.graph_ = graph_seed
         
         # Calculate graph metrics and energy
-        self.__m0 = self.__metrics(self.graph_)
+        self.__m0 = self.__get_metrics(self.graph_)
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
@@ -211,6 +211,18 @@ class Metropolis():
         # Store trajectories as DataFrame
         self.trajectories_ = pd.DataFrame(self.trajectories_,
                                           columns=['Energy']+list(self.metrics))
+        
+    def explore(self,n_vertices,verbose=False):
+        '''Explore the energy landscape
+        '''
+        metrics_target = {key:0 for key in self.metrics}
+        graph = nx.erdos_renyi_graph(n_vertices,0.01)
+        
+        beta_old = self.beta
+        self.beta = 0
+        self.transform(graph, metrics_target,verbose=verbose)
+        self.beta = beta_old
+        
         
     def __str__(self):
         str = "Metropolis-Hastings Annealer\n" + \
