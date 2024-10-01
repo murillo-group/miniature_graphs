@@ -40,14 +40,14 @@ class Metropolis():
         self.metrics_funcs = metrics_funcs
         
         # Store metrics names
-        self.metrics = metrics_funcs.keys()
+        self._metrics = metrics_funcs.keys()
         
         # Store number of iterations
         self.n_iterations = n_iterations
         
         # Store weights
         if metrics_weights is None:
-            weights = {key: 1.0 for key in self.metrics}
+            weights = {key: 1.0 for key in self._metrics}
         else:
             weights = metrics_weights
             
@@ -63,11 +63,20 @@ class Metropolis():
             self.func_loss = func_loss
             
         # Update number of state variables
-        self.__n_states = len(self.metrics)
+        self.__n_states = len(self._metrics)
         
         # Message
         print(self)
         
+    @property
+    def metrics(self):
+        return list(self._metrics)
+        
+    @property
+    def trajectories_(self):
+        names = ['Beta','Energy'] + self.metrics 
+        return pd.DataFrame(self._trajectories__,columns=names)
+    
     def __get_metrics(self, graph):
         '''Calculates the metrics of a graph
         '''
@@ -164,17 +173,18 @@ class Metropolis():
                 self.__E0 = E1
         
         def get_state():
-            state = np.zeros((self.__n_states+1,))
+            state = np.zeros((self.__n_states+2,))
             
             # Store current graph state
-            state[0] = self.__E0
-            state[1:(self.__n_states+1)] = self.__m0
+            state[0] = self.beta
+            state[1] = self.__E0
+            state[2:] = self.__m0
             
             return state
 
         # Verify matching keys for functions, weights, and metrics
         try:
-            keys = self.metrics_weights.keys()
+            keys = self._metrics
             if keys == metrics_target.keys() == metrics_target.keys():
                 # Initialize internal variables
                 self.__metrics_funcs = [self.metrics_funcs[key] for key in keys]
@@ -196,17 +206,13 @@ class Metropolis():
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        self.trajectories_ = np.zeros((self.n_iterations,self.__n_states+1))
-        self.trajectories_[0] = get_state()
+        self._trajectories__ = np.zeros((self.n_iterations,
+                                         self.__n_states+2))
         
         # Iterate
-        for iter in range(self.n_iterations-1):
+        for iter in range(self.n_iterations):
             if verbose is True:
                 print(f"Iteration {iter+1}/{self.n_iterations}\n")
                 
             step()
-            self.trajectories_[iter+1] = get_state()
-            
-        # Store trajectories as DataFrame
-        self.trajectories_ = pd.DataFrame(self.trajectories_,
-                                          columns=['Energy']+list(self.metrics))
+            self._trajectories__[iter] = get_state()

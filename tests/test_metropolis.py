@@ -24,11 +24,10 @@ metrics_target = {
     "assortativity": -0.15
 }
 
-G = nx.erdos_renyi_graph(300,0.5)
+G = nx.erdos_renyi_graph(300,0.1)
 
 replica.transform(G,metrics_target,verbose=True)
+print(replica)
 df = replica.trajectories_
 
 print(df)
-
-df.to_csv('trajectories_.csv',index=False,sep=',')
