@@ -14,12 +14,13 @@ mpiexec -n $number_of_nodes python parallel_tempering_main.py
 '''
 from mpi4py import MPI
 import numpy as np
-from Metropolis import Metropolis
+from minigraphs import Metropolis
 import networkx as nx
 from scipy.sparse import save_npz
 import os
 import sys
 import json
+import pandas as pd
 
         
 #################
@@ -31,19 +32,10 @@ rank = comm.Get_rank()
 size = comm.size
 
 DATA_DIR = os.environ['DATA_DIR']
-directory_name = sys.argv[1]
-graph_name = sys.argv[2]
+graph_name = sys.argv[1]
+n_vertices = int(sys.argv[2])
 
-# rank zero makes directory if it hasn't been made yet
-if rank == 0:
-    if not os.path.exists('../data/'+directory_name):
-        os.makedirs('../data/'+directory_name,exist_ok=True)
-
-    if not os.path.exists('../results/'+directory_name+'/mini_data/'):
-        os.makedirs('../results/'+directory_name+'/mini_data/',exist_ok=True)
-
-
-if size%2:
+if size % 2:
     raise Exception('An even number of cores is required')
 
 ##################################
@@ -51,41 +43,61 @@ if size%2:
 ##################################
 
 # Initialize buffers
-beta_arr = np.array([0.5,0.75,1,1.25,1.5,2.0]) * beta
-my_beta = np.array([beta_arr[rank]])
-neighbors_beta = np.empty(1,dtype=np.float64)
+beta_arr = np.array([0.5,0.75,1,1.25,1.5,2.0])
 
-my_energy = np.empty(1,dtype=np.float64)
-neighbors_energy = np.empty(1,dtype=np.float64)
+n_substeps = 5
+n_steps = 20
 
+# Load target metrics 
+file_name_metrics = os.path.join(DATA_DIR,'networks',graph_name,'metrics.json')
+with open(file_name_metrics,'r') as metrics_file:
+   metrics_target = json.load(metrics_file)
+   
+# Load parameters
+file_name_params = os.path.join(DATA_DIR,'params',graph_name,f'params_{n_vertices}.json')
+with open(file_name_params,'r') as params_file:
+    params = json.load(params_file)
 
-n_substeps = 20
-n_steps = 100
+# Initialize annealer variables
+beta_opt = params['beta']
+B0 = beta_arr[rank] * beta_opt
+metrics_funcs = {
+    'density': nx.density,
+    'assortativity_norm': lambda G: (nx.degree_assortativity_coefficient(G)+1)/2,
+    'clustering': nx.average_clustering
+}
+metrics_target = {key:metrics_target[key] for key in metrics_funcs.keys()}
+weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
 
-# Load target metrics
-file_metrics = os.path.join(DATA_DIR,'networks',graph_name,'metrics.json')
-with open(file_metrics) as json_file:
-   metrics = json.load(json_file)
+if rank == 0:
+    print(f"\t - Target metrics: {metrics_target}")
+    print(f"\t - Weights: {weights}")
+    print(f"\t - Functions: {metrics_funcs}")
+    
 
-# Initialize graph
-G = nx.erdos_renyi_graph(600,metrics['density'])
+# Initialize graph at the specified density
+G = nx.erdos_renyi_graph(n_vertices,0.1)
 
 #######################################
 # Give each rank a metropolis replica #
 #######################################
-n_cycles = (n_steps // n_substeps) + 1
-n_steps_last = n_steps % n_substeps
+n_cycles = int(np.ceil(n_steps / n_substeps))
+cycles = [n_steps // n_substeps] * n_cycles
 
-replica = Metropolis(G, 
-                     my_beta,
-                     funcs_metrics,
+remainder = n_steps % n_substeps
+if remainder != 0:
+    cycles += [remainder]
+
+replica = Metropolis(B0,
+                     metrics_funcs,
                      n_substeps,
                      metrics_weights=weights,
                      n_changes=10
                      )
 
-
-def exchange() -> float:
+def exchange(E0: float,
+             B0: float
+            ) -> float:
     '''Replicas exchange temperatures according to their energies
     '''
     def prob(E0,E1,B0,B1) -> float:
@@ -93,62 +105,83 @@ def exchange() -> float:
         '''
         return min(1.0,np.exp((E0-E1)*(B0-B1)))
     
-    def swap(flag_send,flag_recv,ref):
+    def swap(E0,B0,flag_send,flag_recv,ref) -> float:
         '''Even ranks propose energy change in the specified direction
         '''
         if flag_send[rank]:
             # Send energy and temp forward to next rank
-            comm.Send([my_energy, MPI.DOUBLE], dest=rank+ref, tag=0)
-            comm.Send([my_beta, MPI.DOUBLE], dest=rank+ref, tag=1)
+            comm.send(E0, dest=rank+ref, tag=0)
+            comm.send(B0, dest=rank+ref, tag=1)
             
             # Receive new temp
-            comm.Recv([my_beta, MPI.DOUBLE], source=rank+ref, tag=2)
+            B0 = comm.recv(source=rank+ref, tag=2)
 
         elif flag_recv[rank]:
             # Receive energy and temp from previous rank
-            comm.Recv([neighbors_energy, MPI.DOUBLE], source=rank-ref, tag=0)
-            comm.Recv([neighbors_beta, MPI.DOUBLE], source=rank-ref,tag=1)
+            E1 = comm.recv(source=rank-ref, tag=0)
+            B1 = comm.recv(source=rank-ref, tag=1)
             
             # Accept or reject switch
-            if prob(my_energy,neighbors_energy,my_beta,neighbors_beta) > np.random.uniform(0,1):
-                comm.Send([my_beta, MPI.DOUBLE], dest=rank-ref, tag=2)
-                my_beta = neighbors_beta.copy()
+            if prob(E0,E1,B0,B1) > np.random.uniform(0,1):
+                comm.send(B0, dest=rank-ref, tag=2)
+                B0 = B1
                 
             else: 
-                comm.Send([neighbors_beta, MPI.DOUBLE], dest=rank-ref, tag=2)
+                comm.send(B1, dest=rank-ref, tag=2)
+                
         
         # Sync replicas
         comm.Barrier()
         
+        return B0
+        
     # Get indices of senders
-    flag_send = (np.arange(0,len(beta_arr)) % 2).astype(bool)
-    flag_recv = np.invert(flag_send)
+    flag_recv = (np.arange(0,len(beta_arr)) % 2).astype(bool)
+    flag_send = np.invert(flag_recv)
     
     # Send forward
-    swap(flag_send, flag_recv, ref=1)
+    B0 = swap(E0,B0,flag_send, flag_recv, ref=1)
     
     # Send backward
     flag_send[0] = False
     flag_recv[-1] = False
-    swap(flag_send, flag_recv, ref=-1)
+    swap(E0,B0,flag_send, flag_recv, ref=-1)
     
-for cycle in range(n_cycles):
+    return B0
+    
+for cycle,steps in enumerate(cycles):
     # Update number of iterations for the last cycle
-    if cycle == (n_cycles-1):
-        replica.n_iterations = n_steps_last
+    replica.n_iterations = steps
         
     # Transform graph
     replica.transform(G,metrics_target)
     
-    # Retrieve trajectories
-    trajectories = replica.trajectories__
-    
     # Swap temperatures
-    my_energy = trajectories['Energy'][-1]
-    my_beta = replica.beta
-    exchange()
+    trajectories = replica.trajectories_.copy()
+    E0 = trajectories['Energy'].iat[-1]
+    B0 = replica.beta
+
+    replica.beta = exchange(E0,B0)
     
-    replica.beta = my_beta
+    # Store trajectories
+    if cycle == 0:
+        trajectories_all = trajectories
+    else:
+        trajectories_all = pd.concat([trajectories_all,trajectories])
+        
+# Create directory if it doesn't exist
+output_dir = os.path.join(DATA_DIR,'miniatures',graph_name,str(n_vertices))
+if (rank == 0) and (not os.path.exists(output_dir)):
+    os.makedirs(output_dir)
+    
+comm.Barrier()
+
+# Store trajectories
+trajectories_all.to_csv(f"replica_{rank}.csv",index=False,sep=',')
+
+
+
+        
     
     
     

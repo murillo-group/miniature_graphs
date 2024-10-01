@@ -83,7 +83,7 @@ class Metropolis():
         # Calculate graph metrics
         metrics = []
         
-        for func in self.__metrics_funcs:
+        for func_name, func in zip(self.metrics_funcs.keys(),self.metrics_funcs.values()):
             try:
                 metric = func(graph)
                 
@@ -94,7 +94,7 @@ class Metropolis():
                 
             except TypeError:
                 print("Metric produced non-scalar result: ")
-                print(metric)
+                print(func_name)
                 
         return metrics
             
@@ -179,17 +179,16 @@ class Metropolis():
             state[0] = self.beta
             state[1] = self.__E0
             state[2:] = self.__m0
-            
+        
             return state
 
         # Verify matching keys for functions, weights, and metrics
         try:
-            keys = self._metrics
-            if keys == metrics_target.keys() == metrics_target.keys():
+            if self._metrics == metrics_target.keys() == self.metrics_weights.keys():
+                
                 # Initialize internal variables
-                self.__metrics_funcs = [self.metrics_funcs[key] for key in keys]
-                self.__weights = np.array([self.metrics_weights[key] for key in keys])
-                self.__metrics_targets = np.array([metrics_target[key] for key in keys])
+                self.__weights = np.array([self.metrics_weights[key] for key in self._metrics])
+                self.__metrics_targets = np.array([metrics_target[key] for key in self._metrics])
                 
             else:
                 raise(LookupError)
