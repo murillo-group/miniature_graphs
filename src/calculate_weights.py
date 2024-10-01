@@ -2,6 +2,8 @@ from minigraphs import Metropolis
 import pandas as pd 
 import networkx as nx
 import sys
+import os
+import json
 '''Calculates the weights for the specified graph
 '''
 
@@ -34,4 +36,11 @@ df = replica.trajectories_
 diff = df[['density','assortativity','clustering']].diff().abs()
 
 # Calculate the weights
-print(dict(1/diff.mean()))
+weights = dict(1/diff.mean())
+weights['num_vertices'] = N
+
+print(weights)
+
+# Save to JSON
+with open('weights.json','w+') as f:
+    json.dump(weights,f,indent=4)
