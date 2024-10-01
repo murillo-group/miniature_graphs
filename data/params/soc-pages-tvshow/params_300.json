@@ -1,0 +1,9 @@
+{
+    "beta": 6.492052817619609,
+    "n_vertices": 300,
+    "weights": {
+        "density": 4743.401542425153,
+        "assortativity_norm": 3.337607798603303,
+        "clustering": 2.7027027027027044
+    }
+}
