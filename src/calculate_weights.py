@@ -7,14 +7,28 @@ import json
 '''Calculates the weights for the specified graph
 '''
 
-N = 1000
-density = 21.2e-3
-n_iterations = 10
+# Validate inputs
+try:
+    graph_name = sys.argv[1]
+    n_vertices = sys.argv[2]
+    n_iterations = sys.argv[3]
+except IndexError:
+    print("Error: not enough input arguments provided. Necessary inputs are\n")
+    print("\t - Graph name\n\t - n_vertices\n\t - n_iterations\n")
+
+# Retrieve Graph Density
+DATA_DIR = os.getenv['DATA_DIR']
+file_name = os.path.join(DATA_DIR,'networks','metrics.json')
+
+with open(filename) as file:
+    data = json.load(file)
+    
+density = data['density']
 
 # Specify Metric funcions
 funcs_metrics = {
     'density': nx.density,
-    'assortativity': lambda G: nx.degree_assortativity_coefficient(G)/2,
+    'assortativity_norm': lambda G: nx.degree_assortativity_coefficient(G)/2,
     'clustering': nx.average_clustering
 }
 
