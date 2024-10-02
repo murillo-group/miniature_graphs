@@ -13,6 +13,7 @@ try:
     graph_name = sys.argv[1]
     n_vertices = int(sys.argv[2])
     n_iterations = int(sys.argv[3])
+    density = float(sys.argv[4])
 except IndexError:
     print("Error: not enough input arguments provided. Necessary inputs are\n")
     print("\t - Graph name\n\t - n_vertices\n\t - n_iterations\n")
@@ -35,7 +36,7 @@ funcs_metrics = {
 
 # Calculate weights
 replica = Metropolis(0,funcs_metrics,n_iterations,n_changes=10)
-G = nx.erdos_renyi_graph(n_vertices,metrics['density'])
+G = nx.erdos_renyi_graph(n_vertices,density)
 replica.transform(G,metrics,verbose=True)
 
 df = replica.trajectories_
@@ -50,11 +51,11 @@ print(f"Weights: {weights}")
 # Calculate optimal beta
 replica = Metropolis(0,
                      funcs_metrics,
-                     metrics_weights=weights,
                      n_iterations=n_iterations,
+                     metrics_weights=weights,
                      n_changes=10
                      )
-G = nx.erdos_renyi_graph(n_vertices,metrics['density'])
+G = nx.erdos_renyi_graph(n_vertices,density)
 replica.transform(G,metrics,verbose=True)
 
 df = replica.trajectories_
