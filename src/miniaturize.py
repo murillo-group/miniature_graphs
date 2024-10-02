@@ -45,8 +45,8 @@ if size % 2:
 # Initialize buffers
 beta_arr = np.array([0.5,0.75,1,1.25,1.5,1.75])
 
-n_substeps = 5
-n_steps = 20
+n_substeps = 50
+n_steps = 10000
 
 # Load target metrics 
 file_name_metrics = os.path.join(DATA_DIR,'networks',graph_name,'metrics.json')
@@ -70,19 +70,20 @@ metrics_target = {key:metrics_target[key] for key in metrics_funcs.keys()}
 weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
 
 if rank == 0:
+    print(f"Miniaturizing '{graph_name}' to size {n_vertices}...")
     print(f"\t - Target metrics: {metrics_target}")
     print(f"\t - Weights: {weights}")
     print(f"\t - Functions: {metrics_funcs}")
     
 
 # Initialize graph at the specified density
-G = nx.erdos_renyi_graph(n_vertices,0.1)
+G = nx.erdos_renyi_graph(n_vertices,metrics_target['density'])
 
 #######################################
 # Give each rank a metropolis replica #
 #######################################
 n_cycles = int(np.ceil(n_steps / n_substeps))
-cycles = [n_steps // n_substeps] * n_cycles
+cycles = [n_substeps] * (n_steps // n_substeps)
 
 remainder = n_steps % n_substeps
 if remainder != 0:
@@ -128,8 +129,7 @@ def exchange(E0: float,
                 
             else: 
                 comm.send(B1, dest=rank-ref, tag=2)
-                
-        
+                 
         # Sync replicas
         comm.Barrier()
         
@@ -145,16 +145,22 @@ def exchange(E0: float,
     # Send backward
     flag_send[0] = False
     flag_recv[-1] = False
-    swap(E0,B0,flag_send, flag_recv, ref=-1)
+    B0 = swap(E0,B0,flag_send, flag_recv, ref=-1)
     
     return B0
     
 for cycle,steps in enumerate(cycles):
+    if rank == 0:
+        print(f"\nCycle {cycle+1}/{len(cycles)} <<<\n")
+        verbose = True 
+    else:
+        verbose = False
+        
     # Update number of iterations for the last cycle
     replica.n_iterations = steps
         
     # Transform graph
-    replica.transform(G,metrics_target)
+    replica.transform(G,metrics_target,verbose=verbose)
     
     # Swap temperatures
     trajectories = replica.trajectories_.copy()
@@ -162,6 +168,8 @@ for cycle,steps in enumerate(cycles):
     B0 = replica.beta
 
     replica.beta = exchange(E0,B0)
+    
+    G = replica.graph_
     
     # Store trajectories
     if cycle == 0:
