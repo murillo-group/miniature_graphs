@@ -65,9 +65,6 @@ class Metropolis():
         # Update number of state variables
         self.__n_states = len(self._metrics)
         
-        # Message
-        print(self)
-        
     @property
     def metrics(self):
         return list(self._metrics)
