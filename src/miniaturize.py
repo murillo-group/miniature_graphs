@@ -21,8 +21,8 @@ import os
 import sys
 import json
 import pandas as pd
+import datetime
 
-        
 #################
 # Setup for MPI #
 #################
@@ -170,14 +170,29 @@ for cycle,steps in enumerate(cycles):
         trajectories_all = pd.concat([trajectories_all,trajectories])
         
 # Create directory if it doesn't exist
-output_dir = os.path.join(DATA_DIR,'miniatures',graph_name,str(n_vertices))
+now = datetime.datetime.now()
+time = now.strftime("%Y-%m-%d_%H-%M-%S")
+output_dir = os.path.join(DATA_DIR,'miniatures',graph_name,str(n_vertices),time)
 if (rank == 0) and (not os.path.exists(output_dir)):
     os.makedirs(output_dir)
     
 comm.Barrier()
 
+# store your energy and rank
+my_energy_core = np.array([(E0,rank)],dtype=[('energy',np.float64), ('rank',np.int32)])
+# allocate memory for min energy and rank
+min_energy_core = np.empty(1,dtype=[('energy',np.float64), ('rank',np.int32)])
+
+# reduce to all ranks the mimum energy and rank that has the mimimum
+comm.Allreduce([my_energy_core, 1, MPI.DOUBLE_INT], [min_energy_core, 1, MPI.DOUBLE_INT], op=MPI.MINLOC)
+
+if rank == min_energy_core['rank']:
+    file_name_adj = os.path.join(output_dir,'adj.npz')
+    save_npz(file_name_adj,nx.adjacency_matrix(replica.graph_))
+
 # Store trajectories
-trajectories_all.to_csv(f"replica_{rank}.csv",index=False,sep=',')
+file_name_trajectory = os.path.join(output_dir,f"replica_{rank}.csv")
+trajectories_all.to_csv(file_name_trajectory,index=False,sep=',')
 
 
 
