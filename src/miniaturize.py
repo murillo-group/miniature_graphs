@@ -34,6 +34,7 @@ size = comm.size
 DATA_DIR = os.environ['DATA_DIR']
 graph_name = sys.argv[1]
 n_vertices = int(sys.argv[2])
+density = float(sys.argv[3])
 
 if size % 2:
     raise Exception('An even number of cores is required')
@@ -71,13 +72,14 @@ weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
 
 if rank == 0:
     print(f"Miniaturizing '{graph_name}' to size {n_vertices}...")
+    print(f"Beta opt: {beta_opt}\n")
     print(f"\t - Target metrics: {metrics_target}")
     print(f"\t - Weights: {weights}")
     print(f"\t - Functions: {metrics_funcs}")
     
 
 # Initialize graph at the specified density
-G = nx.erdos_renyi_graph(n_vertices,metrics_target['density'])
+G = nx.erdos_renyi_graph(n_vertices,density)
 
 #######################################
 # Give each rank a metropolis replica #
