@@ -110,24 +110,25 @@ class Metropolis():
         temp_graph = deepcopy(self.graph_)
         
         # Propose changes
-        changes = np.random.randint(0,3,size=self.n_changes)
+        probability = np.random.uniform(size=self.n_changes)
         
-        for change in changes:
-            if change == 0:
+        for p in probability:
+            if p <= 0.25:
                 # Add edge
                 edges = list(nx.non_edges(temp_graph))
                 idx = np.random.randint(0,len(edges))
                 
                 temp_graph.add_edge(*edges[idx])
                 
-            elif change == 1:
+            elif (0.25 < p <= 0.5):
                 # Remove edge
                 edges = list(nx.edges(temp_graph))
                 idx = np.random.randint(0,len(edges))
                 
                 temp_graph.remove_edge(*edges[idx])
                 
-            else:
+            elif (0.5 < p <= 1.0):
+                # Switch edge
                 edges = list(nx.edges(temp_graph))
                 non_edges = list(nx.non_edges(temp_graph))
                 
