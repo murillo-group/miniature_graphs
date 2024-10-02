@@ -115,10 +115,10 @@ class Metropolis():
         for p in probability:
             if p <= 0.25:
                 # Add edge
-                edges = list(nx.non_edges(temp_graph))
-                idx = np.random.randint(0,len(edges))
+                non_edges = list(nx.non_edges(temp_graph))
+                idx = np.random.randint(0,len(non_edges))
                 
-                temp_graph.add_edge(*edges[idx])
+                temp_graph.add_edge(*non_edges[idx])
                 
             elif (0.25 < p <= 0.5):
                 # Remove edge
@@ -143,10 +143,7 @@ class Metropolis():
     def __accept_change(self,E0: float, E1:float) -> bool:
         '''Accepts proposed change according to the Metropolis ratio
         '''
-        # Calculate Boltzmann Ratio 
-        prob = np.exp((E0-E1)*self.beta)
-    
-        return prob >= np.random.uniform(0,1)
+        return np.exp((E0-E1)*self.beta) >= np.random.uniform()
 
             
     def transform(self, graph_seed, metrics_target,verbose=False) -> None:
