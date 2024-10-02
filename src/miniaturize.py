@@ -43,7 +43,7 @@ if size % 2:
 ##################################
 
 # Initialize buffers
-beta_arr = np.array([0.5,0.75,1,1.25,1.5,2.0])
+beta_arr = np.array([0.5,0.75,1,1.25,1.5,1.75])
 
 n_substeps = 5
 n_steps = 20
@@ -187,9 +187,19 @@ min_energy_core = np.empty(1,dtype=[('energy',np.float64), ('rank',np.int32)])
 comm.Allreduce([my_energy_core, 1, MPI.DOUBLE_INT], [min_energy_core, 1, MPI.DOUBLE_INT], op=MPI.MINLOC)
 
 if rank == min_energy_core['rank']:
-    file_name_adj = os.path.join(output_dir,'adj.npz')
-    save_npz(file_name_adj,nx.adjacency_matrix(replica.graph_))
+    file_name_adj = os.path.join(output_dir,'graph.gexf')
+    nx.write_gexf(replica.graph_,file_name_adj)
+    metrics_out = dict(trajectories_all.iloc[-1])
+    
+    # Store final metrics
+    file_name_metrics_out = os.path.join(output_dir,f"metrics_mini.json")
+    with open(file_name_metrics_out,'w+') as json_file:
+        json.dump(metrics_out,json_file,indent=4)
 
 # Store trajectories
 file_name_trajectory = os.path.join(output_dir,f"replica_{rank}.csv")
 trajectories_all.to_csv(file_name_trajectory,index=False,sep=',')
+
+
+
+
