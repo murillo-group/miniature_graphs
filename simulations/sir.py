@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 '''
-@author: buttsdav@msu.edu
-last updated April 2024
+@author: buttsdav@lanl.gov
 
-The following code simulates a compartmental SIR model that obeys the following
-equations:
-
-dS/dt = -beta SI
-dI/dt = beta SI - gamma I
-dR/dt = gamma I
+The following code simulates a compartmental SIR model
 
 Individual's states can have the following values:
 0 : susceptible
@@ -18,7 +12,7 @@ Individual's states can have the following values:
 
 to run:
 
-python sir_main.py example_graph/ graph.npz
+python SIR.py $path_to_graph.npz $maximum_iterations $output_directory
 '''
 
 import networkx as nx
@@ -28,21 +22,25 @@ import sys
 import datetime
 import os
 
-##############
-# Load graph #
-##############
+#################
+# Gloabal Setup #
+#################
 
-directory_name = sys.argv[1]
-graph_name = sys.argv[2]
+# name of graph that code will run on
+GRAPH_NAME = sys.argv[1]
+# maximum allowed iterations
+MAX_ITERS = int(sys.argv[2])
+# name of output directory to save results
+OUTPUT_DIR = sys.argv[3]
 
 # make directory if it hasn't been made yet
-if not os.path.exists('../results/'+directory_name+'/SIR/'):
-    os.makedirs('../results/'+directory_name+'/SIR/',exist_ok=True)
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR,exist_ok=True)
 
 
 # load the adjacency matrix for graph that the model will run on
 # it is assumed that the graph will be an scipy.sparse matrix
-A = load_npz('../data/'+directory_name+'/'+graph_name)
+A = load_npz(GRAPH_NAME)
 
 # find the number of agents in the graph
 N = A.shape[0]
@@ -51,10 +49,8 @@ N = A.shape[0]
 # Parameters Setup #
 ####################
 
-# maximum allowed iterations
-MAX_ITERS = 2000
 # infection parameter for SIR model (these depend on the number of agents)
-BETA = 20/N
+BETA = 50/N
 # recovery parameter for SIR model (these depend on the number of agents)
 GAMMA = 20/N
 
@@ -123,8 +119,6 @@ while step < MAX_ITERS:
             num_i -= 1
             num_r += 1
 
-
-
     # increment step
     step += 1
     # copy temp states to states
@@ -139,6 +133,4 @@ while step < MAX_ITERS:
         trajectory[step:] = trajectory[step]
         break
 trajectory/=N
-np.save('../results/'+directory_name+'/SIR/run_'+datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S_%f'),trajectory)
-# print(trajectory,np.sum(trajectory,axis=1))
-# print(sys.argv[1]+'_sir')
+np.save(OUTPUT_DIR+'/run_'+datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S_%f'),trajectory)
