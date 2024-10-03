@@ -46,7 +46,7 @@ if size % 2:
 # Initialize buffers
 beta_arr = np.array([0.5,0.75,1,1.25,1.5,1.75])
 
-n_substeps = 100
+n_substeps = 400
 n_steps = 20000
 
 # Load target metrics 
@@ -68,7 +68,7 @@ metrics_funcs = {
     'clustering': nx.average_clustering
 }
 metrics_target = {key:metrics_target[key] for key in metrics_funcs.keys()}
-weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+weights = {key:params[key] for key in metrics_funcs.keys()}
 
 if rank == 0:
     print(f"Miniaturizing '{graph_name}' to size {n_vertices}...")
