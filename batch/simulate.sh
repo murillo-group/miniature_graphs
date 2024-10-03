@@ -13,4 +13,7 @@ N_ITERATIONS=$3
 FILE_NAME="$DATA_DIR/networks/$GRAPH_NAME/graph.npz"
 FILE_NAME_OUT="$DATA_DIR/simulations/$GRAPH_NAME/original"
 
-python -u ../simulations/$MODEL.py "$FILE_NAME" "$N_ITERATIONS" "$FILE_NAME_OUT"
+for i in {1..30}
+do
+    python -u ../simulations/$MODEL.py "$FILE_NAME" "$N_ITERATIONS" "$FILE_NAME_OUT"
+done
