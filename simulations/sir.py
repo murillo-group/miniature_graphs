@@ -57,7 +57,7 @@ GAMMA = 20/N
 # create a dictionary storing the neighbors of each rank
 neighbors = {}
 for i in range(N):
-    neighbors[i] = A.getrow(i).indices
+    neighbors[i] = A._getrow(i).indices
 
 # delete the adjacency matrix to save some space
 del A
