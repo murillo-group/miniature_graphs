@@ -66,6 +66,17 @@ class Metropolis():
         self.__n_states = len(self._metrics)
         
     @property
+    def state_(self):
+        state = np.zeros((self.__n_states+2,))
+            
+        # Store current graph state
+        state[0] = self.beta
+        state[1] = self.__E0
+        state[2:] = self.__m0
+            
+        return state
+        
+    @property
     def metrics(self):
         return list(self._metrics)
         
@@ -99,6 +110,7 @@ class Metropolis():
         '''Energy of the graph with respect to target metrics
         '''
         diff = self.__metrics_targets - metrics
+        
         energy = self.func_loss(self.__weights,diff)
         
         return energy
@@ -113,21 +125,21 @@ class Metropolis():
         probability = np.random.uniform(size=self.n_changes)
         
         for p in probability:
-            if p <= 0.25:
+            if p < 0.25:
                 # Add edge
                 non_edges = list(nx.non_edges(temp_graph))
                 idx = np.random.randint(0,len(non_edges))
                 
                 temp_graph.add_edge(*non_edges[idx])
                 
-            elif (0.25 < p <= 0.5):
+            elif p < 0.5:
                 # Remove edge
                 edges = list(nx.edges(temp_graph))
                 idx = np.random.randint(0,len(edges))
                 
                 temp_graph.remove_edge(*edges[idx])
                 
-            elif (0.5 < p <= 1.0):
+            else:
                 # Switch edge
                 edges = list(nx.edges(temp_graph))
                 non_edges = list(nx.non_edges(temp_graph))
@@ -149,34 +161,6 @@ class Metropolis():
     def transform(self, graph_seed, metrics_target,verbose=False) -> None:
         '''Miniaturizes seed graph
         '''
-        def step():
-            # Change the graph
-            graph_new = self.__make_change()
-            
-            # Retrieve energy of the current graph
-            E0 = self.__E0
-
-            # Calculate metrics and energy of the new graph
-            m1 = self.__get_metrics(graph_new)
-            E1 = self.__energy(m1)
-            
-            # Check for change
-            if self.__accept_change(E0, E1):
-                # Update current graph, metrics and energy
-                self.graph_ = graph_new
-                self.__m0 = m1
-                self.__E0 = E1
-        
-        def get_state():
-            state = np.zeros((self.__n_states+2,))
-            
-            # Store current graph state
-            state[0] = self.beta
-            state[1] = self.__E0
-            state[2:] = self.__m0
-        
-            return state
-
         # Verify matching keys for functions, weights, and metrics
         try:
             if self._metrics == metrics_target.keys() == self.metrics_weights.keys():
@@ -208,5 +192,21 @@ class Metropolis():
             if verbose is True:
                 print(f"Iteration {iter+1}/{self.n_iterations}\n")
                 
-            step()
-            self._trajectories__[iter] = get_state()
+            # Change the graph
+            graph_new = self.__make_change()
+            
+            # Retrieve energy of the current graph
+            E0 = self.__E0
+
+            # Calculate metrics and energy of the new graph
+            m1 = self.__get_metrics(graph_new)
+            E1 = self.__energy(m1)
+            
+            # Check for change
+            if self.__accept_change(E0, E1):
+                # Update current graph, metrics and energy
+                self.graph_ = graph_new
+                self.__m0 = m1
+                self.__E0 = E1
+                
+            self._trajectories__[iter] = self.state_

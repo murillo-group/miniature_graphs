@@ -13,7 +13,9 @@ try:
     graph_name = sys.argv[1]
     n_vertices = int(sys.argv[2])
     n_iterations = int(sys.argv[3])
-    density = float(sys.argv[4])
+    N = int(sys.argv[4])
+    density = float(sys.argv[5])
+    
 except IndexError:
     print("Error: not enough input arguments provided. Necessary inputs are\n")
     print("\t - Graph name\n\t - n_vertices\n\t - n_iterations\n")
@@ -35,36 +37,52 @@ funcs_metrics = {
 }
 
 # Calculate weights
-replica = Metropolis(0,funcs_metrics,n_iterations,n_changes=10)
-G = nx.erdos_renyi_graph(n_vertices,density)
-replica.transform(G,metrics,verbose=True)
-
-df = replica.trajectories_
-
-for metric in replica.metrics:
-    df.loc[:,metric] = df[metric] - metrics[metric]
+params = []
+for i in range(N):
+    print(f"Sweep {i+1}/{N}")
+    replica = Metropolis(0,
+                         funcs_metrics,
+                         n_iterations=n_iterations,
+                        )
     
-weights = dict(1/df[replica.metrics].abs().mean())
+    G = nx.erdos_renyi_graph(n_vertices,density)
+    replica.transform(G,metrics)
 
-print(f"Weights: {weights}")
+    df = replica.trajectories_.copy()
 
-# Calculate optimal beta
-replica = Metropolis(0,
-                     funcs_metrics,
-                     n_iterations=n_iterations,
-                     metrics_weights=weights,
-                     n_changes=10
-                     )
-G = nx.erdos_renyi_graph(n_vertices,density)
-replica.transform(G,metrics,verbose=True)
+    for metric in replica.metrics:
+        df.loc[:,metric] = df[metric] - metrics[metric]
+        
+    weights = dict(1/df[replica.metrics].abs().mean())
 
-df = replica.trajectories_
+    print(f"Weights: {weights}")
 
-beta = -log(0.23) * 1/df['Energy'].diff().abs().mean()
+    # Calculate optimal beta
+    replica = Metropolis(0,
+                        funcs_metrics,
+                        n_iterations=n_iterations,
+                        metrics_weights=weights,
+                        )
+    
+    G = nx.erdos_renyi_graph(n_vertices,density)
+    replica.transform(G,metrics)
 
-print(f"Beta: {beta}")
+    df = replica.trajectories_.copy()
 
-params = {"beta": beta, "n_vertices":n_vertices, "weights": weights}
+    beta = -log(0.23) * 1/df['Energy'].diff().abs().mean()
+
+    print(f"Beta: {beta}\n")
+
+    params.append([beta] + list(weights.values()))
+
+params = pd.DataFrame(params,columns=['beta'] + list(weights.keys()))
+print(params)
+
+params = params.mean()
+print("Final parameters:")
+print(params)
+
+
 
 # Create outpot directory
 if not os.path.exists(output_dir):
@@ -73,4 +91,4 @@ if not os.path.exists(output_dir):
 # Save to JSON
 file_name = os.path.join(output_dir,f'params_{n_vertices}.json')
 with open(file_name,'w+') as f:
-    json.dump(params,f,indent=4)
+    json.dump(dict(params),f,indent=4)

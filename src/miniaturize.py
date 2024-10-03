@@ -95,7 +95,6 @@ replica = Metropolis(B0,
                      metrics_funcs,
                      n_substeps,
                      metrics_weights=weights,
-                     n_changes=10
                      )
 
 def exchange(E0: float,
@@ -163,7 +162,7 @@ for cycle,steps in enumerate(cycles):
     replica.n_iterations = steps
         
     # Transform graph
-    replica.transform(G,metrics_target,verbose=verbose)
+    replica.transform(G,metrics_target)
     
     # Swap temperatures
     trajectories = replica.trajectories_.copy()

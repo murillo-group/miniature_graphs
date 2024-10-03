@@ -1,0 +1,60 @@
+Sourcing minigraphs...
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <module>
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <module>
+Traceback (most recent call last):
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <module>
+Traceback (most recent call last):
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <module>
+Traceback (most recent call last):
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <module>
+Traceback (most recent call last):
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <module>
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <dictcomp>
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <dictcomp>
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+                   ~~~~~~^^^^^^^^^^^
+KeyError: 'weights'
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <dictcomp>
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <dictcomp>
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+                   ~~~~~~^^^^^^^^^^^
+KeyError: 'weights'
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <dictcomp>
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/ufs18/home-245/martjor/repos/dev_pt/batch/../src/miniaturize.py", line 71, in <dictcomp>
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+                   ~~~~~~^^^^^^^^^^^
+KeyError: 'weights'
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+                   ~~~~~~^^^^^^^^^^^
+KeyError: 'weights'
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+                   ~~~~~~^^^^^^^^^^^
+KeyError: 'weights'
+    weights = {key:params['weights'][key] for key in metrics_funcs.keys()}
+                   ~~~~~~^^^^^^^^^^^
+KeyError: 'weights'
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpiexec detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[28034,1],0]
+  Exit code:    1
+--------------------------------------------------------------------------
