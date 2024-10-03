@@ -46,8 +46,8 @@ if size % 2:
 # Initialize buffers
 beta_arr = np.array([0.5,0.75,1,1.25,1.5,1.75])
 
-n_substeps = 50
-n_steps = 10000
+n_substeps = 100
+n_steps = 20000
 
 # Load target metrics 
 file_name_metrics = os.path.join(DATA_DIR,'networks',graph_name,'metrics.json')
@@ -150,7 +150,8 @@ def exchange(E0: float,
     B0 = swap(E0,B0,flag_send, flag_recv, ref=-1)
     
     return B0
-    
+
+list_trajectories = []
 for cycle,steps in enumerate(cycles):
     if rank == 0:
         print(f"\nCycle {cycle+1}/{len(cycles)} <<<\n")
@@ -174,11 +175,11 @@ for cycle,steps in enumerate(cycles):
     G = replica.graph_
     
     # Store trajectories
-    if cycle == 0:
-        trajectories_all = trajectories
-    else:
-        trajectories_all = pd.concat([trajectories_all,trajectories])
-        
+    list_trajectories.append(replica.trajectories_.copy())
+
+# Create complete trajectories
+trajectories_all = pd.concat(list_trajectories)
+
 # Create directory if it doesn't exist
 now = datetime.datetime.now()
 time = now.strftime("%Y-%m-%d_%H-%M-%S")
@@ -207,8 +208,8 @@ if rank == min_energy_core['rank']:
         json.dump(metrics_out,json_file,indent=4)
 
 # Store trajectories
-file_name_trajectory = os.path.join(output_dir,f"replica_{rank}.csv")
-trajectories_all.to_csv(file_name_trajectory,index=False,sep=',')
+file_name_trajectory = os.path.join(output_dir,f"replica_{rank}.parquet")
+trajectories_all.to_parquet(file_name_trajectory,engine='pyarrow',compression='snappy')
 
 
 
