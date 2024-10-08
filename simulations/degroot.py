@@ -11,7 +11,6 @@ python degroot.py $path_to_graph.npz
 '''
 
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 import sys
 from scipy.sparse import load_npz
@@ -29,6 +28,8 @@ MAX_ITERS = int(sys.argv[2])
 # name of output directory to save results
 OUTPUT_DIR = sys.argv[3]
 
+
+
 # make directory if it hasn't been made yet
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR,exist_ok=True)
@@ -40,8 +41,10 @@ T = normalize(A, axis=1, norm='l1')
 # find the number of agents in the graph
 N = A.shape[0]
 
-x0 = np.random.uniform(0,1,size=N)
 
+x0 = np.random.uniform(0,1,size=N)
+print(f"Running DeGroot on {GRAPH_NAME}")
+print(f"Size {N}")
 
 # plot_data = np.zeros((101,100))
 trajectory = np.zeros((MAX_ITERS+1,N))

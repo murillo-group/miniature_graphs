@@ -45,6 +45,9 @@ A = load_npz(GRAPH_NAME)
 # find the number of agents in the graph
 N = A.shape[0]
 
+print(f"Running SIR on {GRAPH_NAME}")
+print(f"Size {N}")
+
 ####################
 # Parameters Setup #
 ####################
