@@ -10,8 +10,8 @@ MODEL=$1
 GRAPH_NAME=$2
 N_ITERATIONS=$3
 
-FILE_NAME="$DATA_DIR/networks/$GRAPH_NAME/graph.npz"
-FILE_NAME_OUT="$DATA_DIR/simulations/$GRAPH_NAME/original/$MODEL"
+FILE_NAME="$DATA_DIR/miniatures/$GRAPH_NAME/1000/test_00/graph.npz"
+FILE_NAME_OUT="$DATA_DIR/simulations/$GRAPH_NAME/1000/test_00/$MODEL"
 
 for i in {1..30}
 do
