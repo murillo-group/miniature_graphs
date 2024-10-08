@@ -1,6 +1,0 @@
-{"target_degree": 0.005653530056688282,
- "degree_weight": 166081.3308687615,
- "target_assort": 0.5237003769808969,
- "assort_weight": 1146.549246654955,
- "target_clust": 0.5375333362074072,
- "clust_weight": 8709.559041455086}
