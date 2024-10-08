@@ -46,7 +46,7 @@ if size % 2:
 # Initialize buffers
 beta_arr = np.array([0.5,0.75,1,1.25,1.5,1.75])
 
-n_substeps = 400
+n_substeps = 1000
 n_steps = 20000
 
 # Load target metrics 
