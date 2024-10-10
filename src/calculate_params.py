@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from minigraphs import Metropolis
 from numpy import log
 import pandas as pd 
@@ -44,6 +45,7 @@ for i in range(N):
     replica = Metropolis(0,
                          funcs_metrics,
                          n_iterations=n_iterations,
+                         n_changes=10
                         )
     
     G = nx.erdos_renyi_graph(n_vertices,density)
@@ -61,6 +63,7 @@ for i in range(N):
                         funcs_metrics,
                         n_iterations=n_iterations,
                         metrics_weights=weights,
+                        n_changes=10
                         )
     
     G = nx.erdos_renyi_graph(n_vertices,density)
