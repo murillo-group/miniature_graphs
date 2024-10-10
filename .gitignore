@@ -3,6 +3,7 @@ __pycache__/
 minigraphs.egg-info/
 site/
 *.out
+*.err
 
 # Networks directory
 data/networks/**/*
