@@ -15,7 +15,6 @@ try:
     n_vertices = int(sys.argv[2])
     n_iterations = int(sys.argv[3])
     N = int(sys.argv[4])
-    density = float(sys.argv[5])
     
 except IndexError:
     print("Error: not enough input arguments provided. Necessary inputs are\n")
@@ -48,7 +47,7 @@ for i in range(N):
                          n_changes=10
                         )
     
-    G = nx.erdos_renyi_graph(n_vertices,density)
+    G = nx.erdos_renyi_graph(n_vertices,metrics['density'])
     replica.transform(G,metrics)
 
     df = replica.trajectories_.copy()
@@ -66,7 +65,7 @@ for i in range(N):
                         n_changes=10
                         )
     
-    G = nx.erdos_renyi_graph(n_vertices,density)
+    G = nx.erdos_renyi_graph(n_vertices,metrics['density'])
     replica.transform(G,metrics)
 
     df = replica.trajectories_.copy()
