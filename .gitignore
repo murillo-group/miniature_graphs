@@ -2,6 +2,8 @@ __pycache__/
 *.DS_Store
 minigraphs.egg-info/
 site/
-data/params/
-data/simulations/
 *.out
+
+# Networks directory
+data/networks/**/*
+!data/networks/**/
