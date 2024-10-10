@@ -22,9 +22,9 @@ except IndexError:
 
 # Retrieve Graph Metrics
 DATA_DIR = os.environ['DATA_DIR']
-input_file = os.path.join(DATA_DIR,'networks',graph_name,'metrics.json')
-output_dir = os.path.join(DATA_DIR,'params',graph_name)
+NET_DIR = os.path.join(DATA_DIR,'networks',graph_name)
 
+input_file = os.path.join(NET_DIR,'metrics.json')
 with open(input_file) as file:
     metrics = json.load(file)
     metrics = {key:metrics[key] for key in ['density','assortativity_norm','clustering']}
