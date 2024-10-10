@@ -23,6 +23,7 @@ except IndexError:
 # Retrieve Graph Metrics
 DATA_DIR = os.environ['DATA_DIR']
 NET_DIR = os.path.join(DATA_DIR,'networks',graph_name)
+PARAMS_DIR = os.path.join(NET_DIR,'parameters')
 
 input_file = os.path.join(NET_DIR,'metrics.json')
 with open(input_file) as file:
@@ -83,13 +84,11 @@ params = params.mean()
 print("Final parameters:")
 print(params)
 
-
-
 # Create outpot directory
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+if not os.path.exists(PARAMS_DIR):
+    os.makedirs(PARAMS_DIR)
 
 # Save to JSON
-file_name = os.path.join(output_dir,f'params_{n_vertices}.json')
+file_name = os.path.join(PARAMS_DIR,f'params_{n_vertices}.json')
 with open(file_name,'w+') as f:
     json.dump(dict(params),f,indent=4)
