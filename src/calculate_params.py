@@ -51,11 +51,8 @@ for i in range(N):
 
     df = replica.trajectories_.copy()
 
-    for metric in replica.metrics:
-        df.loc[:,metric] = df[metric] - metrics[metric]
-        
     print(df)
-    weights = dict(1/df[replica.metrics].abs().mean())
+    weights = dict(1/df[replica.metrics].diff().abs().mean())
 
     print(f"Weights: {weights}")
 
