@@ -121,34 +121,38 @@ class Metropolis():
         # Make deep copy
         temp_graph = deepcopy(self.graph_)
         
-        # Propose changes
-        probability = np.random.uniform(size=self.n_changes)
-        
-        for p in probability:
-            if p < 0.25:
-                # Add edge
-                non_edges = list(nx.non_edges(temp_graph))
-                idx = np.random.randint(0,len(non_edges))
+        for i in range(self.n_changes):
+            # Obtain list of current edges in the graph
+            edges = list(nx.edges(temp_graph))
+            non_edges = list(nx.non_edges(temp_graph))
+            
+            choose_action = True
+            while choose_action:
+                # Choose an action at random
+                p = np.random.uniform()
                 
-                temp_graph.add_edge(*non_edges[idx])
-                
-            elif p < 0.5:
-                # Remove edge
-                edges = list(nx.edges(temp_graph))
-                idx = np.random.randint(0,len(edges))
-                
-                temp_graph.remove_edge(*edges[idx])
-                
-            else:
-                # Switch edge
-                edges = list(nx.edges(temp_graph))
-                non_edges = list(nx.non_edges(temp_graph))
-                
-                idx_edge = np.random.randint(0,len(edges))
-                idx_non_edge = np.random.randint(0,len(non_edges))
-                
-                temp_graph.remove_edge(*edges[idx_edge])
-                temp_graph.add_edge(*non_edges[idx_non_edge])
+                if (p < 0.25) and (len(non_edges) < 0):
+                    # Add edge
+                    idx = np.random.randint(0,len(non_edges))
+                    
+                    temp_graph.add_edge(*non_edges[idx])
+                    choose_action = False
+                    
+                elif (p < 0.5) and (len(edges) < 0):
+                    # Remove edge
+                    idx = np.random.randint(0,len(edges))
+                    
+                    temp_graph.remove_edge(*edges[idx])
+                    choose_action = False
+                    
+                elif (len(edges) < 0) and (len(non_edges) < 0):
+                    # Switch edge
+                    idx_edge = np.random.randint(0,len(edges))
+                    idx_non_edge = np.random.randint(0,len(non_edges))
+                    
+                    temp_graph.remove_edge(*edges[idx_edge])
+                    temp_graph.add_edge(*non_edges[idx_non_edge])
+                    choose_action = False
                 
         return temp_graph
     
