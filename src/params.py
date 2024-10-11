@@ -6,15 +6,16 @@ import networkx as nx
 import sys
 import os
 import json
-'''Calculates the weights for the specified graph
+'''Calculates the parameters for the specified graph
 '''
 
 # Validate inputs
 try:
     graph_name = sys.argv[1]
     frac_size = round(float(sys.argv[2]),3)
-    n_iterations = int(sys.argv[3])
-    N = int(sys.argv[4])
+    n_changes = int(sys.argv[3])
+    n_samples = int(sys.argv[4])
+    n_iterations = int(sys.argv[5])
     
 except IndexError:
     print("Error: not enough input arguments provided. Necessary inputs are\n")
@@ -50,16 +51,16 @@ except ValueError:
 print(f"Calculating Miniaturization Parameters for {graph_name}")
 print(f"\t - Size: {n_vertices} nodes ({frac_size * 100}% miniaturization)")
 print(f"\t - Number iterations per sample: {n_iterations}")
-print(f"\t - Number of samples: {N}\n")
+print(f"\t - Number of samples: {n_samples}\n")
 
 # Calculate weights
 params = []
-for i in range(N):
-    print(f"Sweep {i+1}/{N}")
+for i in range(n_samples):
+    print(f"Sweep {i+1}/{n_samples}")
     replica = Metropolis(0,
                          funcs_metrics,
                          n_iterations=n_iterations,
-                         n_changes=10
+                         n_changes=n_changes
                         )
     
     G = nx.erdos_renyi_graph(n_vertices,metrics_target['density'])
@@ -76,7 +77,7 @@ for i in range(N):
                         funcs_metrics,
                         n_iterations=n_iterations,
                         metrics_weights=weights,
-                        n_changes=10
+                        n_changes=n_changes
                         )
     
     G = nx.erdos_renyi_graph(n_vertices,metrics_target['density'])
