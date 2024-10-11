@@ -23,78 +23,82 @@ import json
 import pandas as pd
 import datetime
 
-#################
-# Setup for MPI #
-#################
-
+##### INITIALIZE MPI #####
+#========================#
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.size
 
-DATA_DIR = os.environ['DATA_DIR']
+##### PROCESS INPUT #####
+#=======================#
 graph_name = sys.argv[1]
-n_vertices = int(sys.argv[2])
-density = float(sys.argv[3])
+frac_size = round(float(sys.argv[2]),3)
+n_changes = int(sys.argv[3])
+
+##### READ INPUT FILES #####
+#==========================#
+DATA_DIR = os.environ['DATA_DIR']
+NET_DIR = os.path.join(DATA_DIR,'networks',graph_name)
 
 if size % 2:
     raise Exception('An even number of cores is required')
 
-##################################
-# Set up variables for each rank #
-##################################
-
-# Initialize buffers
-beta_arr = np.array([0.5,0.75,1,1.25,1.5,1.75])
-
-n_substeps = 1000
-n_steps = 20000
-
-# Load target metrics 
-file_name_metrics = os.path.join(DATA_DIR,'networks',graph_name,'metrics.json')
+# Target metrics
+file_name_metrics = os.path.join(NET_DIR,'metrics.json')
 with open(file_name_metrics,'r') as metrics_file:
-   metrics_target = json.load(metrics_file)
+   metrics = json.load(metrics_file)
    
-# Load parameters
-file_name_params = os.path.join(DATA_DIR,'params',graph_name,f'params_{n_vertices}.json')
+# Miniaturization Parameters
+file_name_params = os.path.join(NET_DIR,'parameters',f"params_{frac_size}.json")
 with open(file_name_params,'r') as params_file:
     params = json.load(params_file)
 
-# Initialize annealer variables
-beta_opt = params['beta']
-B0 = beta_arr[rank] * beta_opt
+##### INITIALIZE PARALLEL TEMPERING REPLICAS #####
+#================================================#
+# Iteration parameters
+n_substeps = 100
+n_steps = 20000
+n_cycles = int(np.ceil(n_steps / n_substeps))
+cycles = [n_substeps] * (n_steps // n_substeps)
+remainder = n_steps % n_substeps
+if remainder != 0:
+    cycles += [remainder]
+
+# Replica parameters
+n_vertices = int(frac_size * metrics['n_vertices'])
+beta_arr = np.array([1/8,1/4,1/2,1,2,4])
+B0 = beta_arr[rank] * params['beta']
 metrics_funcs = {
     'density': nx.density,
     'assortativity_norm': lambda G: (nx.degree_assortativity_coefficient(G)+1)/2,
     'clustering': nx.average_clustering
 }
-metrics_target = {key:metrics_target[key] for key in metrics_funcs.keys()}
-weights = {key:params[key] for key in metrics_funcs.keys()}
 
+metrics_target = {
+    key:metrics[key] for key in metrics_funcs.keys()
+}
+
+weights = {
+    key:params[key] for key in metrics_funcs.keys()
+}
+    
+# Initialize seed graph
+G = nx.erdos_renyi_graph(n_vertices,metrics_target['density'])
+
+# Display Message
 if rank == 0:
-    print(f"Miniaturizing '{graph_name}' to size {n_vertices}...")
-    print(f"Beta opt: {beta_opt}\n")
+    print(f"Miniaturizing '{graph_name}' to size {n_vertices} ({frac_size * 100}% miniaturization)...")
+    print(f"Beta opt: {params['beta']}\n")
     print(f"\t - Target metrics: {metrics_target}")
     print(f"\t - Weights: {weights}")
-    print(f"\t - Functions: {metrics_funcs}")
-    
+    print(f"\t - Functions: {metrics_funcs}\n")
 
-# Initialize graph at the specified density
-G = nx.erdos_renyi_graph(n_vertices,density)
-
-#######################################
-# Give each rank a metropolis replica #
-#######################################
-n_cycles = int(np.ceil(n_steps / n_substeps))
-cycles = [n_substeps] * (n_steps // n_substeps)
-
-remainder = n_steps % n_substeps
-if remainder != 0:
-    cycles += [remainder]
-
+# Initialize replica
 replica = Metropolis(B0,
                      metrics_funcs,
                      n_substeps,
                      metrics_weights=weights,
+                     n_changes=n_changes
                      )
 
 def exchange(E0: float,
@@ -179,12 +183,23 @@ for cycle,steps in enumerate(cycles):
 # Create complete trajectories
 trajectories_all = pd.concat(list_trajectories)
 
-# Create directory if it doesn't exist
+# Create output directory
 now = datetime.datetime.now()
-time = now.strftime("%Y-%m-%d_%H-%M-%S")
-output_dir = os.path.join(DATA_DIR,'miniatures',graph_name,str(n_vertices),time)
-if (rank == 0) and (not os.path.exists(output_dir)):
+date = now.strftime("%Y-%m-%d")
+
+counter = 0
+output_file_exists = True
+while output_file_exists:
+    output_dir = os.path.join(NET_DIR,'miniatures',f"{frac_size}_{date}_{counter:02d}")
+    
+    output_file_exists = os.path.exists(output_dir)
+    counter += 1
+
+if rank == 0:
     os.makedirs(output_dir)
+    
+# if (rank == 0) and (not os.path.exists(output_dir)):
+#     os.makedirs(output_dir)
     
 comm.Barrier()
 
@@ -197,12 +212,12 @@ min_energy_core = np.empty(1,dtype=[('energy',np.float64), ('rank',np.int32)])
 comm.Allreduce([my_energy_core, 1, MPI.DOUBLE_INT], [min_energy_core, 1, MPI.DOUBLE_INT], op=MPI.MINLOC)
 
 if rank == min_energy_core['rank']:
-    file_name_adj = os.path.join(output_dir,'graph.gexf')
-    nx.write_gexf(replica.graph_,file_name_adj)
-    metrics_out = dict(trajectories_all.iloc[-1])
+    file_name_graph = os.path.join(output_dir,'graph.npz')
+    save_npz(file_name_graph,nx.to_scipy_sparse_array(replica.graph_))
     
     # Store final metrics
-    file_name_metrics_out = os.path.join(output_dir,f"metrics_mini.json")
+    metrics_out = dict(trajectories_all.iloc[-1])
+    file_name_metrics_out = os.path.join(output_dir,'metrics.json')
     with open(file_name_metrics_out,'w+') as json_file:
         json.dump(metrics_out,json_file,indent=4)
 
