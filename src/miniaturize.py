@@ -30,6 +30,8 @@ import datetime
 @click.argument('frac_size',type=click.FLOAT)
 @click.option('--output_dir',default='.',help='Output directory')
 @click.option('--n_changes',default=10,help='Number of changes proposed at each iteration')
+@click.option('--n_steps',default=20000,help='Number of miniaturization steps')
+@click.option('--n_substeps',default=200,help='Number of miniaturization substeps')
 def miniaturize(metrics_file_name,
                 params_file_name,
                 frac_size,
@@ -40,22 +42,14 @@ def miniaturize(metrics_file_name,
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.size
-
-    ##### PROCESS INPUT #####
-    #=======================#
-    metrics_file_name = sys.argv[1]
-    params_file_name = sys.argv[2]
-    output_dir = sys.argv[3]
-    frac_size = round(float(sys.argv[4]),3)
-    n_changes = int(sys.argv[5])
-
+    
     ##### READ INPUT FILES #####
     #==========================#
     if size % 2:
         raise Exception('An even number of cores is required')
 
     # Target metrics
-    with open(metrics_file,'r') as metrics_file:
+    with open(metrics_file_name,'r') as metrics_file:
         metrics = json.load(metrics_file)
     
     # Miniaturization Parameters
@@ -96,7 +90,7 @@ def miniaturize(metrics_file_name,
 
     # Display Message
     if rank == 0:
-        print(f"Miniaturizing '{graph_name}' to size {n_vertices} ({frac_size * 100}% miniaturization)...")
+        print(f"Miniaturizing graph at {metrics_file_name} to size {n_vertices} ({frac_size * 100}% miniaturization)...")
         print(f"Beta opt: {params['beta']}\n")
         print(f"\t - Target metrics: {metrics_target}")
         print(f"\t - Weights: {weights}")
