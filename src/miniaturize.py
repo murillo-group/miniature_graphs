@@ -27,7 +27,7 @@ import datetime
 @click.command()
 @click.argument('metrics_file_name',type=click.Path(exists=True))
 @click.argument('params_file_name',type=click.Path(exists=True))
-@click.argument('frac_size',type=click.FLOAT)
+@click.argument('frac_size',type=click.INT)
 @click.option('--output_dir',default='.',help='Output directory')
 @click.option('--n_changes',default=10,help='Number of changes proposed at each iteration')
 @click.option('--n_steps',default=20000,help='Number of miniaturization steps')
@@ -36,7 +36,9 @@ def miniaturize(metrics_file_name,
                 params_file_name,
                 frac_size,
                 output_dir,
-                n_changes):
+                n_changes,
+                n_steps,
+                n_substeps):
     ##### INITIALIZE MPI #####
     #========================#
     comm = MPI.COMM_WORLD
@@ -59,8 +61,6 @@ def miniaturize(metrics_file_name,
     ##### INITIALIZE PARALLEL TEMPERING REPLICAS #####
     #================================================#
     # Iteration parameters
-    n_substeps = 100
-    n_steps = 20000
     n_cycles = int(np.ceil(n_steps / n_substeps))
     cycles = [n_substeps] * (n_steps // n_substeps)
     remainder = n_steps % n_substeps
@@ -68,7 +68,7 @@ def miniaturize(metrics_file_name,
         cycles += [remainder]
 
     # Replica parameters
-    n_vertices = int(frac_size * metrics['n_vertices'])
+    n_vertices = int((frac_size/1000) * metrics['n_vertices'])
     beta_arr = np.array([1/8,1/4,1/2,1,2,4])
     B0 = beta_arr[rank] * params['beta']
     metrics_funcs = {
@@ -90,7 +90,7 @@ def miniaturize(metrics_file_name,
 
     # Display Message
     if rank == 0:
-        print(f"Miniaturizing graph at {metrics_file_name} to size {n_vertices} ({frac_size * 100}% miniaturization)...")
+        print(f"Miniaturizing graph at {metrics_file_name} to size {n_vertices} ({frac_size/10}% miniaturization)...")
         print(f"Beta opt: {params['beta']}\n")
         print(f"\t - Target metrics: {metrics_target}")
         print(f"\t - Weights: {weights}")
@@ -193,7 +193,7 @@ def miniaturize(metrics_file_name,
     counter = 0
     output_file_exists = True
     while output_file_exists:
-        output_subdir = os.path.join(output_dir,f"{frac_size}_{date}_{counter:02d}")
+        output_subdir = os.path.join(output_dir,f"{frac_size:03d}_{date}_{counter:02d}")
         
         output_file_exists = os.path.exists(output_subdir)
         counter += 1

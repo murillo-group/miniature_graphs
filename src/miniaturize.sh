@@ -13,7 +13,7 @@ NET_DIR="$DATA_DIR/networks/$GRAPH_NAME"
 
 # Final paths
 METRICS_FILE="$NET_DIR/metrics.json"
-PARAMS_FILE="$NET_DIR/parameters/params_$FRACTION.json"
+PARAMS_FILE="$NET_DIR/parameters/params_$(printf "%03d" $FRACTION).json"
 OUTPUT_DIR="$NET_DIR/miniatures"
 
 # Verify output directory exists
