@@ -130,22 +130,22 @@ class Metropolis():
             while choose_action:
                 # Choose an action at random
                 p = np.random.uniform()
-                
-                if (p < 0.25) and (len(non_edges) < 0):
+
+                if (p < 0.25) and (len(non_edges) > 0):
                     # Add edge
                     idx = np.random.randint(0,len(non_edges))
                     
                     temp_graph.add_edge(*non_edges[idx])
                     choose_action = False
                     
-                elif (p < 0.5) and (len(edges) < 0):
+                elif (p < 0.5) and (len(edges) > 0):
                     # Remove edge
                     idx = np.random.randint(0,len(edges))
                     
                     temp_graph.remove_edge(*edges[idx])
                     choose_action = False
                     
-                elif (len(edges) < 0) and (len(non_edges) < 0):
+                elif (len(edges) > 0) and (len(non_edges) > 0):
                     # Switch edge
                     idx_edge = np.random.randint(0,len(edges))
                     idx_non_edge = np.random.randint(0,len(non_edges))
