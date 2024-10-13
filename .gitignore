@@ -5,6 +5,10 @@ site/
 *.out
 *.err
 
+# Source directory
+src/miniaturize_batch.sh
+src/params_batch.sh
+
 # Networks directory
 data/networks/**/*
 !data/networks/**/
