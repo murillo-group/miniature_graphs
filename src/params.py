@@ -12,7 +12,7 @@ import json
 
 @click.command()
 @click.argument('metrics_file',type=click.Path(exists=True))
-@click.argument('frac_size',type=click.FLOAT)
+@click.argument('frac_size',type=click.INT)
 @click.option('--output_dir', default="", help='Output directory.')
 @click.option('--n_changes', default=10, help='Number of changes proposed at each iteration.')
 @click.option('--n_samples', default=10, help='Number of times parameters are calculated.')
@@ -38,7 +38,7 @@ def params(metrics_file,
 
     # Calculate miniature size
     try:
-        n_vertices = int(metrics['n_vertices'] * frac_size)
+        n_vertices = int(metrics['n_vertices'] * (frac_size/1000))
         
         if (n_vertices < 1):
             raise ValueError
@@ -47,7 +47,7 @@ def params(metrics_file,
         print("Error: Invalid number of vertices in the miniature")
     
     print(f"Calculating parameters for graph at graph at {metrics_file}")
-    print(f"\t - Size: {n_vertices} nodes ({frac_size * 100}% miniaturization)")
+    print(f"\t - Size: {n_vertices} nodes ({frac_size/10}% miniaturization)")
     print(f"\t - Number iterations per sample: {n_iterations}")
     print(f"\t - Number of samples: {n_samples}\n")
 
@@ -98,7 +98,7 @@ def params(metrics_file,
     print(params)
 
     # Save to JSON
-    file_name = os.path.join(output_dir,f'params_{frac_size}.json')
+    file_name = os.path.join(output_dir,f'params_{frac_size:03d}.json')
     with open(file_name,'w+') as f:
         json.dump(dict(params),f,indent=4)
         
