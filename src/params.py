@@ -65,6 +65,8 @@ def params(metrics_file,
         replica.transform(G,metrics_target)
 
         df = replica.trajectories_.copy()
+        
+        print(df)
         weights = dict(1/df[replica.metrics].diff().abs().mean())
 
         print("Weights:")
