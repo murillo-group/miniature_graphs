@@ -15,23 +15,24 @@ grid.alpha : 0.6
 # Font settings
 font.family : sans-serif
 font.sans-serif : Helvetica, Arial, DejaVu Sans
-font.size : 12
+font.size : 8
 
 # Title and label sizes
-axes.titlesize : 16
-axes.labelsize : 14
+axes.titlesize : 10
+axes.labelsize : 10
 
 # Line and marker properties
 lines.linewidth : 2.0
 lines.markersize : 6
 
 # Legend and tick sizes
-legend.fontsize : 12
-xtick.labelsize : 12
-ytick.labelsize : 12
+legend.fontsize : 5
+xtick.labelsize : 10
+ytick.labelsize : 10
 
 # Figure size
 figure.figsize : 6, 4
+figure.dpi : 300
 
 # Savefig settings
 savefig.dpi : 300
