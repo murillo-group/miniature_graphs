@@ -256,7 +256,7 @@ class CoarseNET:
         '''Computes the adjacency matrix of a Graph
         '''
         A = nx.to_scipy_sparse_array(G)
-        A = A.asfptype()
+        A = A._asfptype()
         A = normalize(A,norm='l2',axis=0)
         
         return A
@@ -345,7 +345,7 @@ class CoarseNET:
         i = 0
         while i <= n_reduced:
             # Retrieve edge according to sorting
-            edge = edges[idx[j]]
+            edge = edges[idx[i]]
             
             # Contract edges
             contract = self.__contract(edge)
@@ -354,6 +354,8 @@ class CoarseNET:
             
         # Add removed edges to the original graph
         self.G_coarse_.add_nodes_from(self.nodes_removed_)
+        
+        
         
         
         
