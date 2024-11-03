@@ -14,7 +14,7 @@ from scipy.special import comb
 import scipy
 from sklearn.preprocessing import normalize
 
-class Metropolis():
+class MH():
     '''An MH-based annealer to miniaturize a graph
     
     Attritubes:
