@@ -13,8 +13,23 @@ import scipy.sparse
 from scipy.special import comb
 import scipy
 from sklearn.preprocessing import normalize
+from typing import Callable 
+import matplotlib.pyplot as plt
 
-class MH():
+NX_DENSITY = lambda G: nx.density(G)
+NX_AVERAGE_CLUSTERING = lambda G: nx.average_clustering(G)
+NX_DEGREE_ASSORTATIVITY = lambda G: nx.degree_assortativity_coefficient(G)
+
+def sigmoid(x,x0,k):
+    return -1 / (1 + np.exp(-k*(x-x0))) + 1
+
+def schedule_sigmoid(t_max,beta_max=1):
+    k = 2*np.log(19)/t_max 
+    t0 = t_max / 2
+    
+    return lambda t: sigmoid(t,t0,k) * beta_max
+
+class MH:
     '''An MH-based annealer to miniaturize a graph
     
     Attritubes:
@@ -27,7 +42,7 @@ class MH():
     '''
 
     def __init__(self,
-                 beta: float, 
+                 schedule: Callable, 
                  metrics_funcs,
                  n_iterations: int,
                  metrics_weights=None,
@@ -36,8 +51,8 @@ class MH():
                  ):
         '''Instantiates the MH annealer
         '''
-        # Store inverse temperature
-        self.beta = beta
+        # Store Annealing schedule
+        self.schedule = schedule
         
         # Store metrics functions
         self.metrics_funcs = metrics_funcs
@@ -50,6 +65,7 @@ class MH():
         
         # Store weights
         if metrics_weights is None:
+            # Weight metrics equally if no weights are specified
             weights = {key: 1.0 for key in self._metrics}
         else:
             weights = metrics_weights
@@ -68,21 +84,26 @@ class MH():
         # Update number of state variables
         self.__n_states = len(self._metrics)
         
-    @property
-    def state_(self):
+    @property 
+    def __state(self):
         state = np.zeros((self.__n_states+2,))
             
         # Store current graph state
-        state[0] = self.beta
+        state[0] = self.__beta
         state[1] = self.__E0
         state[2:] = self.__m0
             
         return state
+
+    @property
+    def __beta(self):
+        # Evaluate beta at the current time step
+        return self.schedule(self.__step)
         
     @property
     def metrics(self):
         return list(self._metrics)
-        
+    
     @property
     def trajectories_(self):
         names = ['Beta','Energy'] + self.metrics 
@@ -121,6 +142,7 @@ class MH():
     def __make_change(self):
         '''Implements changes in a graph
         '''
+        
         # Make deep copy
         temp_graph = deepcopy(self.graph_)
         
@@ -162,7 +184,7 @@ class MH():
     def __accept_change(self,E0: float, E1:float) -> bool:
         '''Accepts proposed change according to the Metropolis ratio
         '''
-        return np.exp((E0-E1)*self.beta) >= np.random.uniform()
+        return np.exp((E0-E1)*self.__beta) >= np.random.uniform()
 
             
     def transform(self, graph_seed, metrics_target,verbose=False) -> None:
@@ -195,9 +217,10 @@ class MH():
                                          self.__n_states+2))
         
         # Iterate
-        for iter in range(self.n_iterations):
+        self.__step = 0
+        while self.__step < self.n_iterations:
             if verbose is True:
-                print(f"Iteration {iter+1}/{self.n_iterations}\n")
+                print(f"Iteration {self.__step+1}/{self.n_iterations}\n")
                 
             # Change the graph
             graph_new = self.__make_change()
@@ -216,7 +239,26 @@ class MH():
                 self.__m0 = m1
                 self.__E0 = E1
                 
-            self._trajectories__[iter] = self.state_
+            self._trajectories__[self.__step] = self.__state
+            self.__step += 1
+    
+    @staticmethod
+    def plot_trajectories(data,targets):
+        trajectories = data.columns
+        n_trajectories = len(trajectories)
+        
+        fig, axes = plt.subplots(n_trajectories,1,dpi=300,figsize=(5,n_trajectories))
+        
+        for i,trajectory in enumerate(trajectories):
+            axes[i].plot(data[trajectory],linewidth=1.0)
+            if (trajectory != 'Beta') and (trajectory != 'Energy'):
+                axes[i].axhline(targets[trajectory],linestyle='--',linewidth=0.5,color='red')
+            axes[i].set_ylabel(trajectory)
+            
+            if i != (n_trajectories-1):
+                axes[i].set_xticklabels([])
+                
+        axes[n_trajectories-1].set_xlabel("Iteration")
             
             
 class CoarseNET:
