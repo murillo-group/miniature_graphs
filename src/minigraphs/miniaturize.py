@@ -15,6 +15,7 @@ import scipy
 from sklearn.preprocessing import normalize
 from typing import Callable 
 import matplotlib.pyplot as plt
+from abc import ABC,abstractmethod
 
 NX_DENSITY = lambda G: nx.density(G)
 NX_AVERAGE_CLUSTERING = lambda G: nx.average_clustering(G)
@@ -28,6 +29,53 @@ def schedule_sigmoid(t_max,beta_max=1):
     t0 = t_max / 2
     
     return lambda t: sigmoid(t,t0,k) * beta_max
+
+class Change(ABC):
+    @abstractmethod
+    def __init__(self,edges):
+        pass 
+    
+    @abstractmethod
+    def do(self,G):
+        pass
+    
+    @abstractmethod
+    def undo(self,G):
+        pass
+    
+class Add(Change):
+    def __init__(self,edge):
+        self.edge = edge 
+        
+    def do(self,G):
+        G.add_edge(self.edge[0],self.edge[1])
+    
+    def undo(self,G):
+        G.remove_edge(self.edge[0],self.edge[1])
+        
+class Remove(Change):
+    def __init__(self,edge):
+        self.edge = edge 
+        
+    def do(self,G):
+        G.remove_edge(self.edge[0],self.edge[1])
+        
+    def undo(self,G):
+        G.add_edge(self.edge[0],self.edge[1])
+        
+class Switch(Change):
+    def __init__(self,edges):
+        self.edges = edges
+    
+    def do(self,G):
+        old, new = self.edges
+        G.remove_edge(old[0],old[1])
+        G.add_edge(new[0],new[1])
+        
+    def undo(self,G):
+        old, new = self.edges 
+        G.remove_edge(new[0],new[1])
+        G.add_edge(old[0],old[1])
 
 class MH:
     '''An MH-based annealer to miniaturize a graph
