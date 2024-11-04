@@ -91,8 +91,8 @@ class MH:
     '''
 
     def __init__(self,
-                 schedule: Callable, 
                  metrics,
+                 schedule: Callable | None = None, 
                  weights=None,
                  n_changes: int = 1,
                  func_loss = None,
@@ -100,7 +100,12 @@ class MH:
         '''Instantiates the MH annealer
         '''
         # Store Annealing schedule
-        self.schedule = schedule
+        if schedule is None:
+            self.schedule = self.__schedule_adaptive
+            self.__schedule_is_default = True
+        else:
+            self.schedule = schedule
+            self.__schedule_is_default = False
         
         # Store metrics functions
         self._metrics = metrics 
@@ -118,28 +123,13 @@ class MH:
         
         # Store number of changes per step
         self.n_changes = n_changes
+        self.__window_size = 10
         
         # Store loss function
         if func_loss is None:
             self.func_loss = lambda weights, metrics_diff: np.sum(weights * np.abs(metrics_diff))
         else:
             self.func_loss = func_loss
-        
-    @property 
-    def __state(self):
-        state = np.zeros((self._n_states+2,))
-            
-        # Store current graph state
-        state[0] = self.__beta
-        state[1] = self.__E0
-        state[2:] = self.__m0
-            
-        return state
-
-    @property
-    def __beta(self):
-        # Evaluate beta at the current time step
-        return self.schedule(self.__step)
         
     @property
     def metrics(self):
@@ -154,6 +144,21 @@ class MH:
         names = ['Beta','Energy'] + list(self._targets_names) 
         return pd.DataFrame(self._trajectories_,columns=names)
     
+    def __schedule_adaptive(self,step):
+        f = 1.0
+        if step >= self.__window_size:
+            # Calculate current acceptance rate
+            rate = self.__window.sum() / self.__window_size
+            
+            # Adjust rate
+            if rate > 0.25:
+                f = 1.01
+            elif rate < 0.2:
+                f = 0.99
+                
+        return self.__beta * f
+                
+        
     def __get_metrics(self):
         '''Calculates the metrics of a graph
         '''
@@ -231,6 +236,7 @@ class MH:
                   targets,
                   n_iterations=None,
                   epsilon=None,
+                  beta: int=None,
                   verbose=False) -> None:
         '''Miniaturizes seed graph
         '''
@@ -250,6 +256,17 @@ class MH:
             self._targets = np.array([targets[key] for key in self._targets_names])
         else:
             raise LookupError(f"No valid targets specified for annealer with metrics {self.metrics}\n")
+        
+        if (not self.__schedule_is_default) and (beta is not None):
+            print("Schedule provided - ignoring initial value for beta")
+        elif beta is not None:
+            self.__beta = beta 
+        else:
+            raise ValueError("Initial beta not provided for adaptive scheduling")
+        
+        # Create window to keep track of acceptance
+        self.__window = np.zeros(self.__window_size,dtype=bool)
+        self.__idx_window = 0
 
         # Initialize graph
         self.graph_ = deepcopy(graph_seed)
@@ -263,10 +280,13 @@ class MH:
                                          self._n_states+2))
         
         # Iterate
-        self.__step = 0
-        while not stop(self.__step):
+        step = 0
+        while not stop(step):
             if verbose is True:
-                print(f"Iteration {self.__step+1}/{n_iterations}\n")
+                print(f"Iteration {step+1}/{n_iterations}\n")
+                
+            # Obtain temperature according to schedule
+            self.__beta = self.schedule(step)
                 
             # Change the graph and calculate energy
             self.__make_change()
@@ -278,16 +298,23 @@ class MH:
                 # Update metrics and energy
                 self.__m0 = m1
                 self.__E0 = E1
+                
+                self.__window[self.__idx_window] = True
             else:
                 # Reverse changes
                 for i in range(len(self._actions)):
                     self._actions.pop().undo(self.graph_)
+                    
+                self.__window[self.__idx_window] = False
+            
+            # Update window index
+            self.__idx_window = (self.__idx_window + 1) % self.__window_size
             
             # Record state
-            self._trajectories_[self.__step][0] = self.__beta
-            self._trajectories_[self.__step][1] = self.__E0
-            self._trajectories_[self.__step][2:] = self.__m0
-            self.__step += 1
+            self._trajectories_[step][0] = self.__beta
+            self._trajectories_[step][1] = self.__E0
+            self._trajectories_[step][2:] = self.__m0
+            step += 1
     
     @staticmethod
     def plot_trajectories(data,targets):
