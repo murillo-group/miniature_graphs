@@ -16,6 +16,7 @@ from sklearn.preprocessing import normalize
 from typing import Callable 
 import matplotlib.pyplot as plt
 from abc import ABC,abstractmethod
+from collections import deque
 
 NX_DENSITY = lambda G: nx.density(G)
 NX_AVERAGE_CLUSTERING = lambda G: nx.average_clustering(G)
@@ -153,16 +154,16 @@ class MH:
     @property
     def trajectories_(self):
         names = ['Beta','Energy'] + list(self._targets_names) 
-        return pd.DataFrame(self._trajectories__,columns=names)
+        return pd.DataFrame(self._trajectories_,columns=names)
     
-    def __get_metrics(self, graph):
+    def __get_metrics(self):
         '''Calculates the metrics of a graph
         '''
         metrics = []
         
         for name in self._targets_names:
             # Calculate metric
-            metric = self._metrics[name](graph)
+            metric = self._metrics[name](self.graph_)
             
             if not isinstance(metric, (int,float)):
                 raise TypeError(f"Metric function {name} returned a non-scalar value")
@@ -180,47 +181,46 @@ class MH:
         
         return energy
         
-    def __make_change(self):
+    def __make_change(self) -> None:
         '''Implements changes in a graph
         '''
+        self._actions = deque()
         
-        # Make deep copy
-        temp_graph = deepcopy(self.graph_)
-        
+        # Propose changes
         for i in range(self.n_changes):
-            # Obtain list of current edges in the graph
-            edges = list(nx.edges(temp_graph))
-            non_edges = list(nx.non_edges(temp_graph))
-            
+            # Propose change
             choose_action = True
             while choose_action:
                 # Choose an action at random
                 p = np.random.uniform()
+                edges = list(nx.edges(self.graph_))
+                non_edges = list(nx.non_edges(self.graph_))
 
                 if (p < 0.25) and (len(non_edges) > 0):
                     # Add edge
                     idx = np.random.randint(0,len(non_edges))
                     
-                    temp_graph.add_edge(*non_edges[idx])
+                    action = Add(non_edges[idx])
                     choose_action = False
                     
                 elif (p < 0.5) and (len(edges) > 0):
                     # Remove edge
                     idx = np.random.randint(0,len(edges))
                     
-                    temp_graph.remove_edge(*edges[idx])
+                    action = Remove(edges[idx])
                     choose_action = False
                     
                 elif (len(edges) > 0) and (len(non_edges) > 0):
                     # Switch edge
                     idx_edge = np.random.randint(0,len(edges))
                     idx_non_edge = np.random.randint(0,len(non_edges))
-                    
-                    temp_graph.remove_edge(*edges[idx_edge])
-                    temp_graph.add_edge(*non_edges[idx_non_edge])
-                    choose_action = False
                 
-        return temp_graph
+                    action = Switch((edges[idx_edge],non_edges[idx_non_edge]))
+                    choose_action = False      
+            
+            # Implement change
+            action.do(self.graph_)
+            self._actions.append(action)          
     
     def __accept_change(self,E0: float, E1:float) -> bool:
         '''Accepts proposed change according to the Metropolis ratio
@@ -242,14 +242,14 @@ class MH:
             raise LookupError(f"No valid targets specified for annealer with metrics {self.metrics}\n")
 
         # Initialize graph
-        self.graph_ = graph_seed
+        self.graph_ = deepcopy(graph_seed)
         
         # Calculate graph metrics and energy
-        self.__m0 = self.__get_metrics(self.graph_)
+        self.__m0 = self.__get_metrics()
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        self._trajectories__ = np.zeros((self.n_iterations,
+        self._trajectories_ = np.zeros((self.n_iterations,
                                          self._n_states+2))
         
         # Iterate
@@ -258,24 +258,25 @@ class MH:
             if verbose is True:
                 print(f"Iteration {self.__step+1}/{self.n_iterations}\n")
                 
-            # Change the graph
-            graph_new = self.__make_change()
-            
-            # Retrieve energy of the current graph
-            E0 = self.__E0
-
-            # Calculate metrics and energy of the new graph
-            m1 = self.__get_metrics(graph_new)
+            # Change the graph and calculate energy
+            self.__make_change()
+            m1 = self.__get_metrics()
             E1 = self.__energy(m1)
             
             # Check for change
-            if self.__accept_change(E0, E1):
-                # Update current graph, metrics and energy
-                self.graph_ = graph_new
+            if self.__accept_change(self.__E0, E1):
+                # Update metrics and energy
                 self.__m0 = m1
                 self.__E0 = E1
-                
-            self._trajectories__[self.__step] = self.__state
+            else:
+                # Reverse changes
+                for i in range(len(self._actions)):
+                    self._actions.pop().undo(self.graph_)
+            
+            # Record state
+            self._trajectories_[self.__step][0] = self.__beta
+            self._trajectories_[self.__step][1] = self.__E0
+            self._trajectories_[self.__step][2:] = self.__m0
             self.__step += 1
     
     @staticmethod
