@@ -93,7 +93,6 @@ class MH:
     def __init__(self,
                  schedule: Callable, 
                  metrics,
-                 n_iterations: int,
                  weights=None,
                  n_changes: int = 1,
                  func_loss = None,
@@ -118,7 +117,6 @@ class MH:
             raise ValueError("Specified weights don't match corresponding metrics")
         
         # Store number of changes per step
-        self.n_iterations = n_iterations
         self.n_changes = n_changes
         
         # Store loss function
@@ -228,9 +226,21 @@ class MH:
         return np.exp((E0-E1)*self.__beta) >= np.random.uniform()
 
             
-    def transform(self, graph_seed, targets,verbose=False) -> None:
+    def transform(self, 
+                  graph_seed, 
+                  targets,
+                  n_iterations=None,
+                  epsilon=None,
+                  verbose=False) -> None:
         '''Miniaturizes seed graph
         '''
+        if (n_iterations is None) and (epsilon is None):
+            raise ValueError("Exactly one stopping criterion must be provided")
+        elif epsilon is None:
+            stop = lambda step: step >= n_iterations
+        elif n_iterations is None:
+            stop = self.__stop
+        
         # Verify matching keys
         self._targets_names = set(self.metrics).intersection(set(targets.keys()))
         self._n_states = len(self._targets_names)
@@ -249,14 +259,14 @@ class MH:
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        self._trajectories_ = np.zeros((self.n_iterations,
+        self._trajectories_ = np.zeros((n_iterations,
                                          self._n_states+2))
         
         # Iterate
         self.__step = 0
-        while self.__step < self.n_iterations:
+        while not stop(self.__step):
             if verbose is True:
-                print(f"Iteration {self.__step+1}/{self.n_iterations}\n")
+                print(f"Iteration {self.__step+1}/{n_iterations}\n")
                 
             # Change the graph and calculate energy
             self.__make_change()
