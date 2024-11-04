@@ -22,7 +22,7 @@ NX_AVERAGE_CLUSTERING = lambda G: nx.average_clustering(G)
 NX_DEGREE_ASSORTATIVITY = lambda G: nx.degree_assortativity_coefficient(G)
 
 def sigmoid(x,x0,k):
-    return -1 / (1 + np.exp(-k*(x-x0))) + 1
+    return 1 / (1 + np.exp(-k*(x-x0)))
 
 def schedule_sigmoid(t_max,beta_max=1):
     k = 2*np.log(19)/t_max 
@@ -91,9 +91,9 @@ class MH:
 
     def __init__(self,
                  schedule: Callable, 
-                 metrics_funcs,
+                 metrics,
                  n_iterations: int,
-                 metrics_weights=None,
+                 weights=None,
                  n_changes: int = 1,
                  func_loss = None,
                  ):
@@ -103,24 +103,21 @@ class MH:
         self.schedule = schedule
         
         # Store metrics functions
-        self.metrics_funcs = metrics_funcs
-        
-        # Store metrics names
-        self._metrics = metrics_funcs.keys()
-        
-        # Store number of iterations
-        self.n_iterations = n_iterations
-        
+        self._metrics = metrics 
+    
         # Store weights
-        if metrics_weights is None:
+        if weights is None:
             # Weight metrics equally if no weights are specified
-            weights = {key: 1.0 for key in self._metrics}
+            self._weights = {key: 1.0 for key in self._metrics}
         else:
-            weights = metrics_weights
-            
-        self.metrics_weights = weights
+            self._weights = weights
+        
+        # Check for matching keys
+        if self._metrics.keys() != self._weights.keys():
+            raise ValueError("Specified weights don't match corresponding metrics")
         
         # Store number of changes per step
+        self.n_iterations = n_iterations
         self.n_changes = n_changes
         
         # Store loss function
@@ -128,13 +125,10 @@ class MH:
             self.func_loss = lambda weights, metrics_diff: np.sum(weights * np.abs(metrics_diff))
         else:
             self.func_loss = func_loss
-            
-        # Update number of state variables
-        self.__n_states = len(self._metrics)
         
     @property 
     def __state(self):
-        state = np.zeros((self.__n_states+2,))
+        state = np.zeros((self._n_states+2,))
             
         # Store current graph state
         state[0] = self.__beta
@@ -150,40 +144,39 @@ class MH:
         
     @property
     def metrics(self):
-        return list(self._metrics)
+        return list(self._metrics.keys())
+    
+    @property
+    def weights(self):
+        return list(self._weights.keys())
     
     @property
     def trajectories_(self):
-        names = ['Beta','Energy'] + self.metrics 
+        names = ['Beta','Energy'] + list(self._targets_names) 
         return pd.DataFrame(self._trajectories__,columns=names)
     
     def __get_metrics(self, graph):
         '''Calculates the metrics of a graph
         '''
-        # Calculate graph metrics
         metrics = []
         
-        for func_name, func in zip(self.metrics_funcs.keys(),self.metrics_funcs.values()):
-            try:
-                metric = func(graph)
-                
-                if not((type(metric) is int) or (type(metric) is float)):
-                    raise(TypeError)
-                
+        for name in self._targets_names:
+            # Calculate metric
+            metric = self._metrics[name](graph)
+            
+            if not isinstance(metric, (int,float)):
+                raise TypeError(f"Metric function {name} returned a non-scalar value")
+            else:
                 metrics.append(metric)
-                
-            except TypeError:
-                print("Metric produced non-scalar result: ")
-                print(func_name)
                 
         return metrics
             
     def __energy(self, metrics):
         '''Energy of the graph with respect to target metrics
         '''
-        diff = self.__metrics_targets - metrics
+        diff = self._targets - metrics
         
-        energy = self.func_loss(self.__weights,diff)
+        energy = self.func_loss(self._weights_arr,diff)
         
         return energy
         
@@ -235,24 +228,19 @@ class MH:
         return np.exp((E0-E1)*self.__beta) >= np.random.uniform()
 
             
-    def transform(self, graph_seed, metrics_target,verbose=False) -> None:
+    def transform(self, graph_seed, targets,verbose=False) -> None:
         '''Miniaturizes seed graph
         '''
-        # Verify matching keys for functions, weights, and metrics
-        try:
-            if self._metrics == metrics_target.keys() == self.metrics_weights.keys():
-                
-                # Initialize internal variables
-                self.__weights = np.array([self.metrics_weights[key] for key in self._metrics])
-                self.__metrics_targets = np.array([metrics_target[key] for key in self._metrics])
-                
-            else:
-                raise(LookupError)
-        
-           
-        except LookupError:
-            print('Keys of functions, weights, or target metrics do not match.')
-            
+        # Verify matching keys
+        self._targets_names = set(self.metrics).intersection(set(targets.keys()))
+        self._n_states = len(self._targets_names)
+        if self._n_states != 0:
+            # Initialize internal variables
+            self._weights_arr = np.array([self._weights[key] for key in self._targets_names])
+            self._targets = np.array([targets[key] for key in self._targets_names])
+        else:
+            raise LookupError(f"No valid targets specified for annealer with metrics {self.metrics}\n")
+
         # Initialize graph
         self.graph_ = graph_seed
         
@@ -262,7 +250,7 @@ class MH:
         
         # Initialize trajectories
         self._trajectories__ = np.zeros((self.n_iterations,
-                                         self.__n_states+2))
+                                         self._n_states+2))
         
         # Iterate
         self.__step = 0
