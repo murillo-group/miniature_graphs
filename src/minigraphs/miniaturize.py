@@ -13,8 +13,72 @@ import scipy.sparse
 from scipy.special import comb
 import scipy
 from sklearn.preprocessing import normalize
+from typing import Callable 
+import matplotlib.pyplot as plt
+from abc import ABC,abstractmethod
+from collections import deque
 
-class Metropolis():
+NX_DENSITY = lambda G: nx.density(G)
+NX_AVERAGE_CLUSTERING = lambda G: nx.average_clustering(G)
+NX_DEGREE_ASSORTATIVITY = lambda G: nx.degree_assortativity_coefficient(G)
+
+def sigmoid(x,x0,k):
+    return 1 / (1 + np.exp(-k*(x-x0)))
+
+def schedule_sigmoid(t_max,beta_max=1):
+    k = 2*np.log(19)/t_max 
+    t0 = t_max / 2
+    
+    return lambda t: sigmoid(t,t0,k) * beta_max
+
+class Change(ABC):
+    @abstractmethod
+    def __init__(self,edges):
+        pass 
+    
+    @abstractmethod
+    def do(self,G):
+        pass
+    
+    @abstractmethod
+    def undo(self,G):
+        pass
+    
+class Add(Change):
+    def __init__(self,edge):
+        self.edge = edge 
+        
+    def do(self,G):
+        G.add_edge(self.edge[0],self.edge[1])
+    
+    def undo(self,G):
+        G.remove_edge(self.edge[0],self.edge[1])
+        
+class Remove(Change):
+    def __init__(self,edge):
+        self.edge = edge 
+        
+    def do(self,G):
+        G.remove_edge(self.edge[0],self.edge[1])
+        
+    def undo(self,G):
+        G.add_edge(self.edge[0],self.edge[1])
+        
+class Switch(Change):
+    def __init__(self,edges):
+        self.edges = edges
+    
+    def do(self,G):
+        old, new = self.edges
+        G.remove_edge(old[0],old[1])
+        G.add_edge(new[0],new[1])
+        
+    def undo(self,G):
+        old, new = self.edges 
+        G.remove_edge(new[0],new[1])
+        G.add_edge(old[0],old[1])
+
+class MH:
     '''An MH-based annealer to miniaturize a graph
     
     Attritubes:
@@ -27,36 +91,34 @@ class Metropolis():
     '''
 
     def __init__(self,
-                 beta: float, 
-                 metrics_funcs,
+                 schedule: Callable, 
+                 metrics,
                  n_iterations: int,
-                 metrics_weights=None,
+                 weights=None,
                  n_changes: int = 1,
                  func_loss = None,
                  ):
         '''Instantiates the MH annealer
         '''
-        # Store inverse temperature
-        self.beta = beta
+        # Store Annealing schedule
+        self.schedule = schedule
         
         # Store metrics functions
-        self.metrics_funcs = metrics_funcs
-        
-        # Store metrics names
-        self._metrics = metrics_funcs.keys()
-        
-        # Store number of iterations
-        self.n_iterations = n_iterations
-        
+        self._metrics = metrics 
+    
         # Store weights
-        if metrics_weights is None:
-            weights = {key: 1.0 for key in self._metrics}
+        if weights is None:
+            # Weight metrics equally if no weights are specified
+            self._weights = {key: 1.0 for key in self._metrics}
         else:
-            weights = metrics_weights
-            
-        self.metrics_weights = weights
+            self._weights = weights
+        
+        # Check for matching keys
+        if self._metrics.keys() != self._weights.keys():
+            raise ValueError("Specified weights don't match corresponding metrics")
         
         # Store number of changes per step
+        self.n_iterations = n_iterations
         self.n_changes = n_changes
         
         # Store loss function
@@ -64,159 +126,176 @@ class Metropolis():
             self.func_loss = lambda weights, metrics_diff: np.sum(weights * np.abs(metrics_diff))
         else:
             self.func_loss = func_loss
-            
-        # Update number of state variables
-        self.__n_states = len(self._metrics)
         
-    @property
-    def state_(self):
-        state = np.zeros((self.__n_states+2,))
+    @property 
+    def __state(self):
+        state = np.zeros((self._n_states+2,))
             
         # Store current graph state
-        state[0] = self.beta
+        state[0] = self.__beta
         state[1] = self.__E0
         state[2:] = self.__m0
             
         return state
+
+    @property
+    def __beta(self):
+        # Evaluate beta at the current time step
+        return self.schedule(self.__step)
         
     @property
     def metrics(self):
-        return list(self._metrics)
-        
+        return list(self._metrics.keys())
+    
+    @property
+    def weights(self):
+        return list(self._weights.keys())
+    
     @property
     def trajectories_(self):
-        names = ['Beta','Energy'] + self.metrics 
-        return pd.DataFrame(self._trajectories__,columns=names)
+        names = ['Beta','Energy'] + list(self._targets_names) 
+        return pd.DataFrame(self._trajectories_,columns=names)
     
-    def __get_metrics(self, graph):
+    def __get_metrics(self):
         '''Calculates the metrics of a graph
         '''
-        # Calculate graph metrics
         metrics = []
         
-        for func_name, func in zip(self.metrics_funcs.keys(),self.metrics_funcs.values()):
-            try:
-                metric = func(graph)
-                
-                if not((type(metric) is int) or (type(metric) is float)):
-                    raise(TypeError)
-                
+        for name in self._targets_names:
+            # Calculate metric
+            metric = self._metrics[name](self.graph_)
+            
+            if not isinstance(metric, (int,float)):
+                raise TypeError(f"Metric function {name} returned a non-scalar value")
+            else:
                 metrics.append(metric)
-                
-            except TypeError:
-                print("Metric produced non-scalar result: ")
-                print(func_name)
                 
         return metrics
             
     def __energy(self, metrics):
         '''Energy of the graph with respect to target metrics
         '''
-        diff = self.__metrics_targets - metrics
+        diff = self._targets - metrics
         
-        energy = self.func_loss(self.__weights,diff)
+        energy = self.func_loss(self._weights_arr,diff)
         
         return energy
         
-    def __make_change(self):
+    def __make_change(self) -> None:
         '''Implements changes in a graph
         '''
-        # Make deep copy
-        temp_graph = deepcopy(self.graph_)
+        self._actions = deque()
         
+        # Propose changes
         for i in range(self.n_changes):
-            # Obtain list of current edges in the graph
-            edges = list(nx.edges(temp_graph))
-            non_edges = list(nx.non_edges(temp_graph))
-            
+            # Propose change
             choose_action = True
             while choose_action:
                 # Choose an action at random
                 p = np.random.uniform()
+                edges = list(nx.edges(self.graph_))
+                non_edges = list(nx.non_edges(self.graph_))
 
                 if (p < 0.25) and (len(non_edges) > 0):
                     # Add edge
                     idx = np.random.randint(0,len(non_edges))
                     
-                    temp_graph.add_edge(*non_edges[idx])
+                    action = Add(non_edges[idx])
                     choose_action = False
                     
                 elif (p < 0.5) and (len(edges) > 0):
                     # Remove edge
                     idx = np.random.randint(0,len(edges))
                     
-                    temp_graph.remove_edge(*edges[idx])
+                    action = Remove(edges[idx])
                     choose_action = False
                     
                 elif (len(edges) > 0) and (len(non_edges) > 0):
                     # Switch edge
                     idx_edge = np.random.randint(0,len(edges))
                     idx_non_edge = np.random.randint(0,len(non_edges))
-                    
-                    temp_graph.remove_edge(*edges[idx_edge])
-                    temp_graph.add_edge(*non_edges[idx_non_edge])
-                    choose_action = False
                 
-        return temp_graph
+                    action = Switch((edges[idx_edge],non_edges[idx_non_edge]))
+                    choose_action = False      
+            
+            # Implement change
+            action.do(self.graph_)
+            self._actions.append(action)          
     
     def __accept_change(self,E0: float, E1:float) -> bool:
         '''Accepts proposed change according to the Metropolis ratio
         '''
-        return np.exp((E0-E1)*self.beta) >= np.random.uniform()
+        return np.exp((E0-E1)*self.__beta) >= np.random.uniform()
 
             
-    def transform(self, graph_seed, metrics_target,verbose=False) -> None:
+    def transform(self, graph_seed, targets,verbose=False) -> None:
         '''Miniaturizes seed graph
         '''
-        # Verify matching keys for functions, weights, and metrics
-        try:
-            if self._metrics == metrics_target.keys() == self.metrics_weights.keys():
-                
-                # Initialize internal variables
-                self.__weights = np.array([self.metrics_weights[key] for key in self._metrics])
-                self.__metrics_targets = np.array([metrics_target[key] for key in self._metrics])
-                
-            else:
-                raise(LookupError)
-        
-           
-        except LookupError:
-            print('Keys of functions, weights, or target metrics do not match.')
-            
+        # Verify matching keys
+        self._targets_names = set(self.metrics).intersection(set(targets.keys()))
+        self._n_states = len(self._targets_names)
+        if self._n_states != 0:
+            # Initialize internal variables
+            self._weights_arr = np.array([self._weights[key] for key in self._targets_names])
+            self._targets = np.array([targets[key] for key in self._targets_names])
+        else:
+            raise LookupError(f"No valid targets specified for annealer with metrics {self.metrics}\n")
+
         # Initialize graph
-        self.graph_ = graph_seed
+        self.graph_ = deepcopy(graph_seed)
         
         # Calculate graph metrics and energy
-        self.__m0 = self.__get_metrics(self.graph_)
+        self.__m0 = self.__get_metrics()
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        self._trajectories__ = np.zeros((self.n_iterations,
-                                         self.__n_states+2))
+        self._trajectories_ = np.zeros((self.n_iterations,
+                                         self._n_states+2))
         
         # Iterate
-        for iter in range(self.n_iterations):
+        self.__step = 0
+        while self.__step < self.n_iterations:
             if verbose is True:
-                print(f"Iteration {iter+1}/{self.n_iterations}\n")
+                print(f"Iteration {self.__step+1}/{self.n_iterations}\n")
                 
-            # Change the graph
-            graph_new = self.__make_change()
-            
-            # Retrieve energy of the current graph
-            E0 = self.__E0
-
-            # Calculate metrics and energy of the new graph
-            m1 = self.__get_metrics(graph_new)
+            # Change the graph and calculate energy
+            self.__make_change()
+            m1 = self.__get_metrics()
             E1 = self.__energy(m1)
             
             # Check for change
-            if self.__accept_change(E0, E1):
-                # Update current graph, metrics and energy
-                self.graph_ = graph_new
+            if self.__accept_change(self.__E0, E1):
+                # Update metrics and energy
                 self.__m0 = m1
                 self.__E0 = E1
+            else:
+                # Reverse changes
+                for i in range(len(self._actions)):
+                    self._actions.pop().undo(self.graph_)
+            
+            # Record state
+            self._trajectories_[self.__step][0] = self.__beta
+            self._trajectories_[self.__step][1] = self.__E0
+            self._trajectories_[self.__step][2:] = self.__m0
+            self.__step += 1
+    
+    @staticmethod
+    def plot_trajectories(data,targets):
+        trajectories = data.columns
+        n_trajectories = len(trajectories)
+        
+        fig, axes = plt.subplots(n_trajectories,1,dpi=300,figsize=(5,n_trajectories))
+        
+        for i,trajectory in enumerate(trajectories):
+            axes[i].plot(data[trajectory],linewidth=1.0)
+            if (trajectory != 'Beta') and (trajectory != 'Energy'):
+                axes[i].axhline(targets[trajectory],linestyle='--',linewidth=0.5,color='red')
+            axes[i].set_ylabel(trajectory)
+            
+            if i != (n_trajectories-1):
+                axes[i].set_xticklabels([])
                 
-            self._trajectories__[iter] = self.state_
+        axes[n_trajectories-1].set_xlabel("Iteration")
             
             
 class CoarseNET:
