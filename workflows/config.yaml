@@ -1,0 +1,2 @@
+data_dir: "/mnt/home/martjor/repos/dev_pt/data"
+env: "envs/env.yaml"

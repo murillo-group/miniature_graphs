@@ -1,0 +1,18 @@
+configfile: "config/config.yaml"
+
+DATA_DIR = config["data_dir"]
+CONDA_ENV = config["env"]
+rule all:
+    input:
+        f"{DATA_DIR}/sensitivities/samples"
+
+rule graph_samples:
+    input:
+    output:
+        f"{DATA_DIR}/sensitivities/samples"
+    threads: 2
+    conda:
+        CONDA_ENV
+    script:
+        "scripts/samples.py"
+    
