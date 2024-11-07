@@ -145,18 +145,33 @@ class MH:
         return pd.DataFrame(self._trajectories_,columns=names)
     
     def __schedule_adaptive(self,step):
+        '''Provides an adaptive scheduling
+        '''
         f = 1.0
         if step >= self.__window_size:
             # Calculate current acceptance rate
             rate = self.__window.sum() / self.__window_size
             
             # Adjust rate
-            if rate > 0.25:
+            if rate > 0.40:
                 f = 1.01
-            elif rate < 0.2:
+            elif rate < 0.20:
                 f = 0.99
                 
         return self.__beta * f
+    
+    def __stop_convergence(self,step):
+        '''Provide a convergence criterion based on the proximity to the metrics
+        '''
+        window_size = 100
+        
+        if step <= window_size:
+            flag = False
+        else:
+            flag = self.__E0 < self.__epsilon
+            
+        return flag
+        
                 
         
     def __get_metrics(self):
@@ -245,7 +260,8 @@ class MH:
         elif epsilon is None:
             stop = lambda step: step >= n_iterations
         elif n_iterations is None:
-            stop = self.__stop
+            self.__epsilon = epsilon
+            stop = self.__stop_convergence
         
         # Verify matching keys
         self._targets_names = set(self.metrics).intersection(set(targets.keys()))
@@ -261,7 +277,7 @@ class MH:
             print("Schedule provided - ignoring initial value for beta")
         elif beta is not None:
             self.__beta = beta 
-        else:
+        elif self.__schedule_is_default:
             raise ValueError("Initial beta not provided for adaptive scheduling")
         
         # Create window to keep track of acceptance
@@ -276,13 +292,17 @@ class MH:
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        self._trajectories_ = np.zeros((n_iterations,
+        if n_iterations is None:
+            size = 20000
+        else:
+            size = n_iterations
+        self._trajectories_ = np.zeros((size,
                                          self._n_states+2))
         
         # Iterate
         step = 0
         while not stop(step):
-            if verbose is True:
+            if (verbose is True) and (n_iterations is not None):
                 print(f"Iteration {step+1}/{n_iterations}\n")
                 
             # Obtain temperature according to schedule
