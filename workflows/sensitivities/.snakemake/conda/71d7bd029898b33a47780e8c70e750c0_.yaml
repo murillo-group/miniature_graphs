@@ -1,6 +1,6 @@
 name: minigraphs_env
 channels:
-  - bioconda
+  - biocondacd
   - conda-forge
   - defaults
 dependencies:
