@@ -21,12 +21,18 @@ def num_graphs(metric_config):
 
     return n_inputs * n_graphs 
 
+def get_target(table,graph):
+    '''Retrieves the target metric to generate a graph
+    '''
+    data = pd.read_csv(table)
+    data.set_index('file',inplace=True)
+    return data.at[graph,'target']
+
 metrics = config['metrics']
 
 rule all:
     input:
-        #[f"data/{metric}/graphs/graph_{i}.npz" for metric in metrics for i in range(num_graphs(config[metric]))]
-        "data/density/samples.csv"
+        "data/density/simulations/sir/sim_results_1.npy"
 
 rule index:
     output:
@@ -41,22 +47,39 @@ rule index:
         parameters = np.tile(inputs,n_graphs)
         df = pd.DataFrame(parameters,columns=["target"])
         df['file'] = 'graph_' + np.arange(df.shape[0]).astype(str) + '.npz'
-        df.set_index('file')
+        df.set_index('file',inplace=True)
 
-        df.to_csv(filename)
+        # Save dataframe
+        df.to_csv(output.filename)
 
 rule sample:
+    input:
+        table="data/{metric}/samples.csv"
     output:
-        filename="data/{metric}/graphs/graph_{i}.npz"
+        filename="data/{metric}/graphs/{graph}"
     params:
-        metric="{metric}",
-        parameter=0.1,
+        parameter=lambda w, input: get_target(input.table,w.graph),
         n_vertices=config['n_vertices']
     script:
         "scripts/generate_graph.py"
-        
+
+rule simulate:
+    input:
+        "data/{metric}/graphs/graph_{index}.npz"
+    output:
+        "data/{metric}/simulations/{simulation}/sim_results_{index}.npy"
+    params:
+        tau=0.1,
+        gamma=0.1,
+        n_steps=1000,
+        n_trials=1
+    script:
+        "scripts/simulate_{wildcards.simulation}.py"
 
 
-
-
-
+# rule characterize:
+#     input:
+#         "data/{metric}/graphs/graph_{i}.npz"
+#     output:
+#         filename="data/{metric}/properties.csv"
+#     run:
