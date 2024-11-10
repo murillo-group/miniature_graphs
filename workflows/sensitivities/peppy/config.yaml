@@ -1,0 +1,13 @@
+metadata:
+  sample_table: graphs.csv
+  output_dir: results/
+  supplementary_tables:
+    - distributions.csv
+    - simulations.csv
+  
+data_sources:
+  graphs_density: data/graphs/density
+  graphs_clustering: data/graphs/clustering
+  graphs_assortativity: data/graphs/assortativity
+  distributions: data/distributions/
+  simulations: simulations/

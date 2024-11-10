@@ -1,0 +1,45 @@
+import yaml
+import pandas as pd
+import peppy
+import numpy as np
+import sys 
+import os
+import networkx as nx
+from scipy.sparse import save_npz
+
+configfile: "config/config.yaml"
+
+def cartesian_product(*arrays):
+    meshgrids = np.meshgrid(*arrays,indexing='ij')
+    cart_prod = np.stack(meshgrids,axis=-1)
+    cart_prod = cart_prod.reshape(-1,len(arrays))
+    return cart_prod
+
+def num_graphs(metric_config):
+    n_inputs = eval(metric_config['inputs']).shape[0]
+    n_graphs = metric_config['n_graphs']
+
+    return n_inputs * n_graphs 
+
+metrics = config['metrics']
+
+rule all:
+    input:
+        [f"data/{metric}/graphs/graph_{i}.npz" for metric in metrics for i in range(num_graphs(config[metric]))]
+
+
+rule sample:
+    output:
+        filename="data/{metric}/graphs/graph_{i}.npz"
+    params:
+        metric="{metric}",
+        parameter=0.1,
+        n_vertices=config['n_vertices']
+    script:
+        "scripts/generate_graph.py"
+        
+
+
+
+
+
