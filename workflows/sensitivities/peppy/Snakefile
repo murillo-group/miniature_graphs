@@ -25,8 +25,25 @@ metrics = config['metrics']
 
 rule all:
     input:
-        [f"data/{metric}/graphs/graph_{i}.npz" for metric in metrics for i in range(num_graphs(config[metric]))]
+        #[f"data/{metric}/graphs/graph_{i}.npz" for metric in metrics for i in range(num_graphs(config[metric]))]
+        "data/density/samples.csv"
 
+rule index:
+    output:
+        filename="data/{metric}/samples.csv"
+    run:
+        # Retrieve inputs
+        metric = wildcards.metric
+        inputs = eval(config[metric]['inputs'])
+        n_graphs = config[metric]['n_graphs']
+
+        # Construct dataframe
+        parameters = np.tile(inputs,n_graphs)
+        df = pd.DataFrame(parameters,columns=["target"])
+        df['file'] = 'graph_' + np.arange(df.shape[0]).astype(str) + '.npz'
+        df.set_index('file')
+
+        df.to_csv(filename)
 
 rule sample:
     output:
