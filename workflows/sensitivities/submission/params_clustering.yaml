@@ -1,4 +1,0 @@
-parameter: "clustering"
-inputs: "np.linspace(0.05,0.95,10)"
-n_graphs: 1
-n_vertices: 100

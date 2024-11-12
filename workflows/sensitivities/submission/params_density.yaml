@@ -1,4 +1,0 @@
-parameter: "density"
-inputs: "10 ** np.linspace(-3,-1,10)"
-n_graphs: 1
-n_vertices: 100
