@@ -5,19 +5,25 @@ import numpy as np
 import sys 
 import os
 import networkx as nx
-from scipy.sparse import save_npz
+from scipy.sparse import save_npz, load_npz
 
 configfile: "config/config.yaml"
 
+# Auxilieary Functions
 def cartesian_product(*arrays):
     meshgrids = np.meshgrid(*arrays,indexing='ij')
     cart_prod = np.stack(meshgrids,axis=-1)
     cart_prod = cart_prod.reshape(-1,len(arrays))
     return cart_prod
 
-def num_graphs(metric_config):
-    n_inputs = eval(metric_config['inputs']).shape[0]
-    n_graphs = metric_config['n_graphs']
+def get_n_graphs(file_name):
+    '''Retrives number of metrics from configuration file
+    '''
+    with open(file_name,'r') as file:
+        p = yaml.safe_load(file)
+
+    n_inputs = eval(p['targets']).shape[0]
+    n_graphs = p['n_samples']
 
     return n_inputs * n_graphs 
 
@@ -28,58 +34,162 @@ def get_target(table,graph):
     data.set_index('file',inplace=True)
     return data.at[graph,'target']
 
+def save_graph(file,G):
+    '''Saves the adjacency matrix of a graph'''
+    save_npz(file,nx.to_scipy_sparse_array(G))
+
+def load_graph(file):
+    '''Loads the adjacency matrix of a graph'''
+    return nx.from_scipy_sparse_array(load_npz(file))
+
+# Preamble
 metrics = config['metrics']
+n_graphs = {metric: get_n_graphs(f"config/config_{metric}.yaml") for metric in metrics}
 
 rule all:
     input:
-        "data/density/simulations/sir/sim_results_1.npy"
+        "results/density/graphs.csv",
+        "results/density/qois_sir.csv"
 
-rule index:
-    output:
-        filename="data/{metric}/samples.csv"
-    run:
-        # Retrieve inputs
-        metric = wildcards.metric
-        inputs = eval(config[metric]['inputs'])
-        n_graphs = config[metric]['n_graphs']
-
-        # Construct dataframe
-        parameters = np.tile(inputs,n_graphs)
-        df = pd.DataFrame(parameters,columns=["target"])
-        df['file'] = 'graph_' + np.arange(df.shape[0]).astype(str) + '.npz'
-        df.set_index('file',inplace=True)
-
-        # Save dataframe
-        df.to_csv(output.filename)
-
-rule sample:
+rule seed:
     input:
-        table="data/{metric}/samples.csv"
+        config_file="config/config_{metric}.yaml"
     output:
-        filename="data/{metric}/graphs/{graph}"
+        temp("data/{metric}/params.npy")
+    run:
+        # Open parameter file
+        with open(input.config_file,'r') as file:
+            conf = yaml.safe_load(file)
+
+        # Generate input parameters
+        parameters = np.tile(eval(conf['targets']),conf['n_samples'])
+
+        # Save parameters
+        np.save(output[0],parameters)
+
+rule generate_graph:
+    input:
+        "data/{metric}/params.npy"
+    output:
+        "data/{metric}/graphs/graph_{index}.npz",
+        temp("data/{metric}/graphs/metrics_{index}.yaml")
     params:
-        parameter=lambda w, input: get_target(input.table,w.graph),
-        n_vertices=config['n_vertices']
-    script:
-        "scripts/generate_graph.py"
+        n_vertices=100
+    run:
+        # Instantiate generator dictionary
+        generator = {
+            'density': lambda p: nx.erdos_renyi_graph(params.n_vertices, p)
+        }
+
+        metric_funcs = {
+            'density': lambda G: nx.density(G),
+            'clustering': lambda G: nx.average_clustering(G),
+            'assortativity': lambda G: nx.degree_assortativity_coefficient(G)
+        }
+        
+        # Load parameters
+        parameters = np.load(input[0],mmap_mode='r')
+
+        # Generate graph
+        p = float(parameters[int(wildcards.index)])
+        G = generator[wildcards.metric](p)
+
+        # Calculate metrics
+        vals = {
+            'graph': os.path.split(output[0])[1],
+            'target': p
+        }
+
+        for metric, func in metric_funcs.items():
+            vals[metric] = func(G)
+
+        # Save graph
+        save_graph(output[0],G)
+
+        # Save metrics
+        with open(output[1],'w') as file:
+            yaml.dump(vals,file,default_flow_style=False)
 
 rule simulate:
     input:
         "data/{metric}/graphs/graph_{index}.npz"
     output:
-        "data/{metric}/simulations/{simulation}/sim_results_{index}.npy"
+        "data/{metric}/simulations/{simulation}/runs/run_{index}.npy"
     params:
-        tau=0.1,
         gamma=0.1,
+        tau=0.1,
         n_steps=1000,
-        n_trials=1
+        n_trials=3,
     script:
         "scripts/simulate_{wildcards.simulation}.py"
 
+rule calculate_qois:
+    input:
+        "data/{metric}/simulations/{simulation}/runs/run_{index}.npy"
+    log:
+        "logs/qois_{metric}_{simulation}_{index}.log"
+    output:
+        "data/{metric}/simulations/{simulation}/qois/quantities_{index}.csv"
+    script:
+        "scripts/qois_{wildcards.simulation}.py"
 
-# rule characterize:
-#     input:
-#         "data/{metric}/graphs/graph_{i}.npz"
-#     output:
-#         filename="data/{metric}/properties.csv"
-#     run:
+rule summarize_graphs:
+    input:
+        metrics=lambda w: [f"data/{w.metric}/graphs/metrics_{index}.yaml" for index in range(n_graphs[w.metric])]
+        
+    output:
+        "results/{metric}/graphs.csv",
+
+    run:
+        # Preamble
+        n_graphs = len(input.metrics)
+        metrics = [{}] * n_graphs
+        
+        # Load dictionaries
+        for i, file_name in enumerate(input.metrics):
+            with open(file_name,'r') as file:
+                metrics[i] = yaml.safe_load(file)
+        
+        # Create dataframe of graphs
+        graphs_df = pd.DataFrame(metrics)
+        graphs_df.set_index('graph',inplace=True)
+
+        # Save dataframes
+        graphs_df.to_csv(output[0])
+        
+
+rule summarize_simulation:
+    input: 
+        qois=lambda w: [f"data/{w.metric}/simulations/{w.simulation}/qois/quantities_{index}.csv" for index in range(n_graphs[w.metric])]
+    
+    output:
+        "results/{metric}/qois_{simulation}.csv"
+
+    run:
+        # Preamble
+        files = sorted(input.qois)
+        n_tables = len(files)
+        qois = [0] * n_tables
+        # Load quantities of interest
+        for i, file_name in enumerate(input.qois):
+            # Load Hierarchical DataFrame
+            qois[i] = pd.read_csv(file_name,index_col=0).stack()
+
+        # Construct qois dataframe
+        qois_df = pd.concat(qois,axis=1).T
+        qois_df.rename(lambda idx: f"graph_{idx}.npz",inplace=True)
+
+        # Save dataframe
+        qois_df.to_csv(output[0])
+
+
+
+
+
+
+    
+
+
+
+
+        
