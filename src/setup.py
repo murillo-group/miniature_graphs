@@ -9,6 +9,8 @@ setup(
         "pandas",
         "scipy",
         "matplotlib",
-        "scikit-learn"
+        "scikit-learn",
+        "networkx",
+        "click"
     ],
 )
