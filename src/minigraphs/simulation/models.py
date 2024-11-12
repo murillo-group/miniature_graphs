@@ -124,7 +124,7 @@ class Sir:
             
             if state == 0:
                 # Obtain neighbors of the ith agent
-                row = A.getrow(i)
+                row = A._getrow(i)
                 
                 # Count number of infected neighbors
                 n_infected = int((states_old[row.indices] == 1).sum())
