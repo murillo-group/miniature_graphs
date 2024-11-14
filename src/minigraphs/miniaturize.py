@@ -141,8 +141,11 @@ class MH:
     
     @property
     def trajectories_(self):
-        names = ['Beta','Energy'] + list(self._targets_names) 
-        return pd.DataFrame(self._trajectories_,columns=names)
+        names = ['Step','Beta','Energy'] + list(self._targets_names)
+        df = pd.DataFrame(self._trajectories_,columns=names)
+        df.set_index('Step',inplace=True)
+        
+        return df
     
     def __schedule_adaptive(self,step):
         '''Provides an adaptive scheduling
@@ -292,14 +295,11 @@ class MH:
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        if n_iterations is None:
-            size = 20000
-        else:
-            size = n_iterations
-        self._trajectories_ = np.zeros((size,
-                                         self._n_states+2))
+        size_history = 10000
+        self._trajectories_ = np.zeros((size_history,self._n_states+3))
         
-        # Iterate
+        #  Begin optimization
+        self.__idx_history = 0
         step = 0
         while not stop(step):
             if (verbose is True) and (n_iterations is not None):
@@ -331,28 +331,55 @@ class MH:
             self.__idx_window = (self.__idx_window + 1) % self.__window_size
             
             # Record state
-            self._trajectories_[step][0] = self.__beta
-            self._trajectories_[step][1] = self.__E0
-            self._trajectories_[step][2:] = self.__m0
+            self._trajectories_[self.__idx_history][0] = step
+            self._trajectories_[self.__idx_history][1] = self.__beta
+            self._trajectories_[self.__idx_history][2] = self.__E0
+            self._trajectories_[self.__idx_history][3:] = self.__m0
+            
+            # Update indices
+            self.__idx_history = (self.__idx_history + 1) % size_history
             step += 1
+            
+        # Store only required iterations
+        if step <= size_history:
+            self._trajectories_ = self._trajectories_[0:step]
+        else:
+            # Slice array
+            stack  = (
+                self._trajectories_[self.__idx_history:],
+                self._trajectories_[0:self.__idx_history]
+            )
+            
+            self._trajectories_ = np.vstack(stack)
+            
+        
     
     @staticmethod
-    def plot_trajectories(data,targets):
+    def plot_trajectories(data,targets=None):
+        # Number of trajectories
         trajectories = data.columns
         n_trajectories = len(trajectories)
         
+        # Instantiate figure and axes
         fig, axes = plt.subplots(n_trajectories,1,dpi=300,figsize=(5,n_trajectories))
         
         for i,trajectory in enumerate(trajectories):
+            # Plot trajectory
             axes[i].plot(data[trajectory],linewidth=1.0)
-            if (trajectory != 'Beta') and (trajectory != 'Energy'):
+            
+            # Plot targets if specified
+            if (trajectory != 'Beta') and (trajectory != 'Energy') and (not targets is None):
                 axes[i].axhline(targets[trajectory],linestyle='--',linewidth=0.5,color='red')
+                
+            # Label axes
             axes[i].set_ylabel(trajectory)
             
             if i != (n_trajectories-1):
                 axes[i].set_xticklabels([])
                 
-        axes[n_trajectories-1].set_xlabel("Iteration")
+        axes[n_trajectories-1].set_xlabel("Step")
+        
+        return axes
             
             
 class CoarseNET:
