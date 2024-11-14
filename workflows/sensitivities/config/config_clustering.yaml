@@ -1,2 +1,2 @@
-targets: "np.linspace(0.1,0.9,10)"
-n_samples: 1
+targets: "np.arange(0.05,0.95,0.05)"
+n_samples: 5

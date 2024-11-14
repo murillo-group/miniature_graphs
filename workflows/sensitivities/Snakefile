@@ -6,6 +6,7 @@ import sys
 import os
 import networkx as nx
 from scipy.sparse import save_npz, load_npz
+from minigraphs.miniaturize import MH, NX_DEGREE_ASSORTATIVITY
 
 configfile: "config/config.yaml"
 
@@ -27,13 +28,6 @@ def get_n_graphs(file_name):
 
     return n_inputs * n_graphs 
 
-def get_target(table,graph):
-    '''Retrieves the target metric to generate a graph
-    '''
-    data = pd.read_csv(table)
-    data.set_index('file',inplace=True)
-    return data.at[graph,'target']
-
 def save_graph(file,G):
     '''Saves the adjacency matrix of a graph'''
     save_npz(file,nx.to_scipy_sparse_array(G))
@@ -42,14 +36,41 @@ def load_graph(file):
     '''Loads the adjacency matrix of a graph'''
     return nx.from_scipy_sparse_array(load_npz(file))
 
+def assortativity_graph(n_vertices,assortativity):
+    '''Create a graph with the specified assortativity
+    '''
+    # Preamble
+    beta = np.inf 
+    epsilon = 0.01
+    p = 0.04
+
+    funcs = {
+        'assortativity': NX_DEGREE_ASSORTATIVITY
+    }
+
+    targets = {
+        'assortativity': assortativity
+    }
+
+    # Instantiate annealer
+    annealer = MH(funcs)
+
+    # Instantiate ER grpah
+    G = nx.erdos_renyi_graph(n_vertices,p)
+
+    # Optimize graph
+    annealer.transform(G,targets,beta=beta,epsilon=epsilon)
+
+    return annealer.graph_
+
 # Preamble
 metrics = config['metrics']
 n_graphs = {metric: get_n_graphs(f"config/config_{metric}.yaml") for metric in metrics}
 
 rule all:
     input:
-        "results/density/graphs.csv",
-        "results/density/qois_sir.csv"
+        [f"results/{metric}/graphs.csv" for metric in metrics],
+        [f"results/{metric}/qois_sir.csv" for metric in metrics]
 
 rule seed:
     input:
@@ -78,7 +99,9 @@ rule generate_graph:
     run:
         # Instantiate generator dictionary
         generator = {
-            'density': lambda p: nx.erdos_renyi_graph(params.n_vertices, p)
+            'density': lambda p: nx.erdos_renyi_graph(params.n_vertices, p),
+            'clustering': lambda p: nx.erdos_renyi_graph(params.n_vertices,p),
+            'assortativity': lambda p: assortativity_graph(params.n_vertices,p)
         }
 
         metric_funcs = {

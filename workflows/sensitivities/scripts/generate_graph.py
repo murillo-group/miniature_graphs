@@ -7,7 +7,6 @@ import numpy as np
 file = snakemake.output.filename
 n_vertices = snakemake.params.n_vertices
 param = snakemake.params.parameter
-print(param)
 
 # Generate graph
 G = nx.erdos_renyi_graph(n_vertices,param)
