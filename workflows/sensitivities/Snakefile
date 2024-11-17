@@ -15,126 +15,159 @@ def cartesian_product(*arrays):
     cart_prod = cart_prod.reshape(-1,len(arrays))
     return cart_prod
 
-def get_n_graphs(file_name):
+def get_n_graphs(parameters):
     '''Retrives number of metrics from configuration file
     '''
-    with open(file_name,'r') as file:
-        p = yaml.safe_load(file)
+    n_inputs = eval(parameters['targets']).shape[0]
+    n_graphs = parameters['n_samples']
 
-    n_inputs = eval(p['targets']).shape[0]
-    n_graphs = p['n_samples']
-
-    return n_inputs * n_graphs 
-
-
-
-
+    return range(n_inputs * n_graphs) 
 
 # Preamble
-metrics = config['metrics']
-n_graphs = {metric: get_n_graphs(f"config/config_{metric}.yaml") for metric in metrics}
+generators = config['generators'].items()
+n_graphs = {gen: get_n_graphs(params) for gen, params in generators}
 
 rule all:
     input:
-        #[f"results/{metric}/graphs.csv" for metric in metrics],
-        #[f"results/{metric}/qois_sir.csv" for metric in metrics]
-        "data/density/graphs/graph_0.npz"
+        "results/density/stats_distance.csv",
+        "results/density/metrics.csv"
 
 rule seed:
-    input:
-        config_file="config/config_{metric}.yaml"
     output:
-        temp("data/{metric}/params.npy")
+        "data/{metric}/params.npy"
+    params:
+        inputs=lambda w: config['generators'][w.metric]['targets'],
+        n_samples=lambda w: config['generators'][w.metric]['n_samples']
     run:
-        # Open parameter file
-        with open(input.config_file,'r') as file:
-            conf = yaml.safe_load(file)
-
         # Generate input parameters
-        parameters = np.tile(eval(conf['targets']),conf['n_samples'])
+        param_array = np.tile(eval(params.inputs),params.n_samples)
 
         # Save parameters
-        np.save(output[0],parameters)
+        np.save(output[0],param_array)
 
-rule generate_graph:
+rule graph_generate:
     input:
         "data/{metric}/params.npy"
     output:
-        "data/{metric}/graphs/graph_{index}.npz",
-        #temp("data/{metric}/graphs/metrics_{index}.yaml")
+        adjacency_file="data/{metric}/graph_{index}/adjacency.npz",
+        target_file="data/{metric}/graph_{index}/target.yaml"
     params:
         n_vertices=100
     script:
-        "scripts/generate_graph.py"
+        "scripts/graph_generate.py"
 
-rule simulate:
+rule graph_metrics:
     input:
-        "data/{metric}/graphs/graph_{index}.npz"
+        "data/{metric}/graph_{index}/adjacency.npz"
     output:
-        "data/{metric}/simulations/{simulation}/runs/run_{index}.npy"
+        "data/{metric}/graph_{index}/metrics.yaml"
+    script:
+        "scripts/graph_characterize.py"
+
+rule graph_distribution:
+    input:
+        "data/{metric}/graph_{index}/adjacency.npz"
+    output:
+        "data/{metric}/graph_{index}/distributions/{quantity}/data.npy"
+    script:
+        "scripts/graph_distribution.py"
+
+rule graph_distribution_draw:
+    input:
+        "data{metric}/graph_{index}/distributions/{quantity}/data.npy"
+    output:
+        "data{metric}/graph_{index}/distributions/{quantity}/dist.png"
+    script:
+        "scripts/graph_distribution_draw.py"
+    
+rule graph_draw:
+    input:
+        "data/{metric}/graph_{index}/adjacency.npz"
+    output:
+        "data/{metric}/graph_{index}/graph.png"
+    script:
+        "scripts/graph_draw.py"
+
+rule simulation_run:
+    input:
+        "data/{metric}/graph_{index}/adjacency.npz"
+    output:
+        "data/{metric}/graph_{index}/{model}/trajectories.npy"
     params:
-        gamma=0.1,
-        tau=0.1,
-        n_steps=1000,
-        n_trials=3,
+        parameters=lambda w: config['simulations'][w.model]
     script:
-        "scripts/simulate_{wildcards.simulation}.py"
+        "scripts/simulation_{wildcards.model}_run.py"
 
-rule calculate_qois:
+rule simulation_qois:
     input:
-        "data/{metric}/simulations/{simulation}/runs/run_{index}.npy"
-    log:
-        "logs/qois_{metric}_{simulation}_{index}.log"
+        "data/{metric}/graph_{index}/{model}/trajectories.npy"
     output:
-        "data/{metric}/simulations/{simulation}/qois/quantities_{index}.csv"
+        "data/{metric}/graph_{index}/{model}/qois.csv"
     script:
-        "scripts/qois_{wildcards.simulation}.py"
+        "scripts/simulation_{wildcards.model}_qois.py"
 
-rule summarize_graphs:
+rule graph_summarize_metrics:
     input:
-        metrics=lambda w: [f"data/{w.metric}/graphs/metrics_{index}.yaml" for index in range(n_graphs[w.metric])]
-        
+        targets=lambda w: [f"data/{w.metric}/graph_{index}/target.yaml" for index in n_graphs[w.metric]],
+        metrics=lambda w: [f"data/{w.metric}/graph_{index}/metrics.yaml" for index in n_graphs[w.metric]]
     output:
-        "results/{metric}/graphs.csv",
-
+        "results/{metric}/metrics.csv"
     run:
         # Preamble
         n_graphs = len(input.metrics)
         metrics = [{}] * n_graphs
         
         # Load dictionaries
-        for i, file_name in enumerate(input.metrics):
-            with open(file_name,'r') as file:
-                metrics[i] = yaml.safe_load(file)
-        
+        for i in range(n_graphs):
+            metrics_file = input.metrics[i]
+            target_file = input.targets[i]
+
+            with open(metrics_file,'r') as file:
+                metrics_temp = yaml.safe_load(file)
+
+            with open(target_file,'r') as file:
+                target_temp = yaml.safe_load(file)
+            
+            # Update dictionary
+            metrics_temp['target'] = target_temp['target']
+
+            metrics[i] = metrics_temp 
+
         # Create dataframe of graphs
         graphs_df = pd.DataFrame(metrics)
-        graphs_df.set_index('graph',inplace=True)
+        graphs_df.rename(lambda idx: f"graph_{idx}",inplace=True)
 
         # Save dataframes
         graphs_df.to_csv(output[0])
+
+rule graph_summarize_distributions:
+    input:
+        distributions=lambda w: [f"data/{w.metric}/graph_{index}/distributions/{w.quantity}/data.npy" for index in n_graphs[w.metric]]
+    output:
+        "results/{metric}/stats_{quantity}.csv"
+    script:
+        "scripts/graph_distribution_summarize.py"
         
 
 rule summarize_simulation:
     input: 
-        qois=lambda w: [f"data/{w.metric}/simulations/{w.simulation}/qois/quantities_{index}.csv" for index in range(n_graphs[w.metric])]
-    
+        qois=lambda w: [f"data/{w.metric}/graph_{index}/{w.model}/qois.csv" for index in n_graphs[w.metric]]
     output:
-        "results/{metric}/qois_{simulation}.csv"
-
+        "results/{metric}/qois_{model}.csv"
     run:
         # Preamble
         files = sorted(input.qois)
         n_tables = len(files)
         qois = [0] * n_tables
         # Load quantities of interest
-        for i, file_name in enumerate(input.qois):
+        for i, file_name in enumerate(files):
+            print(file_name)
             # Load Hierarchical DataFrame
             qois[i] = pd.read_csv(file_name,index_col=0).stack()
 
         # Construct qois dataframe
         qois_df = pd.concat(qois,axis=1).T
-        qois_df.rename(lambda idx: f"graph_{idx}.npz",inplace=True)
+        qois_df.rename(lambda idx: f"graph_{idx}",inplace=True)
 
         # Save dataframe
         qois_df.to_csv(output[0])

@@ -1,2 +1,0 @@
-targets: "np.linspace(-0.95,0.95,19)"
-n_samples: 5

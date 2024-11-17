@@ -1,2 +1,0 @@
-targets: "np.arange(0.05,0.95,0.05)"
-n_samples: 5

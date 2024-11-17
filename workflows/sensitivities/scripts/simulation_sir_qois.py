@@ -13,10 +13,10 @@ qois_arrays = {
 qois = []
 for quantity, array in qois_arrays.items():
     temp = {
-        'mean': float(array.mean(0)),
-        'std': float(array.std(0)),
-        'min': float(array.min(0)),
-        'max': float(array.max(0)),
+        'mean': array.mean(0),
+        'std': array.std(0),
+        'min': array.min(0),
+        'max': array.max(0),
     }
     
     # Store qois

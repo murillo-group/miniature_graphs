@@ -122,18 +122,7 @@ class Characterization:
         self.n_graphs = len(graphs)
     
     @staticmethod
-    def degree_distribution(G):
-        '''Calculates the degree distribution of a graph
-        '''
-        hist = nx.degree_histogram(G)
-        dist = np.zeros((len(hist),2))
-        dist[:,0] = np.arange(len(hist))
-        dist[:,1] = hist
-        
-        # Normalize distribution
-        dist[:,1] /= dist[:,1].sum()
-        
-        return dist 
+    
     
     def distance_distribution(G):
         '''Calculates the distributions of pairwise distances

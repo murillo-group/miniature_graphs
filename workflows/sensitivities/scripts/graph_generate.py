@@ -1,7 +1,8 @@
 import networkx as nx 
 from numpy import inf, load
 from minigraphs.miniaturize import MH, NX_ASSORTATIVITY
-from utils import save_graph, load_graph
+from utils import save_graph
+from yaml import dump
 
 def assortativity_graph(n_vertices,assortativity):
     '''Create a graph with the specified assortativity
@@ -34,7 +35,8 @@ def assortativity_graph(n_vertices,assortativity):
 n_vertices = snakemake.params.n_vertices
 index = snakemake.wildcards.index
 metric = snakemake.wildcards.metric
-output_file = snakemake.output[0]
+adjacency_file = snakemake.output.adjacency_file
+target_file = snakemake.output.target_file
 input_file = snakemake.input[0]
 
 # Instantiate generators
@@ -51,5 +53,7 @@ parameters = load(input_file,mmap_mode='r')
 p = float(parameters[int(index)])
 G = generator[metric](p)
 
-# -------------------- SAVE GRAPH 
-save_graph(output_file,G)
+# -------------------- SAVE GRAPH & SEED
+save_graph(adjacency_file,G)
+with open(target_file,'w') as file:
+    dump({'target': p}, file, default_flow_style=False)
