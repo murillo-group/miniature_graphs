@@ -19,8 +19,8 @@ from abc import ABC,abstractmethod
 from collections import deque
 
 NX_DENSITY = lambda G: nx.density(G)
-NX_AVERAGE_CLUSTERING = lambda G: nx.average_clustering(G)
-NX_DEGREE_ASSORTATIVITY = lambda G: nx.degree_assortativity_coefficient(G)
+NX_CLUSTERING = lambda G: nx.average_clustering(G)
+NX_ASSORTATIVITY = lambda G: nx.degree_assortativity_coefficient(G)
 
 def sigmoid(x,x0,k):
     return 1 / (1 + np.exp(-k*(x-x0)))
