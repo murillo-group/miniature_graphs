@@ -1,4 +1,0 @@
-host: dev-amd20
-Building DAG of jobs...
-CreateCondaEnvironmentException:
-Conda must be version 24.7.1 or later, found version 24.3.0. Please update conda to the latest version. Note that you can also install conda into the snakemake environment without modifying your main conda installation.
