@@ -17,4 +17,5 @@ data/networks/**/*
 workflows/**/data/
 workflows/**/dag*.png
 workflows/**/logs/
-worklows/**/.snakemake/
+workflows/**/.snakemake/
+workflows/**/results/
