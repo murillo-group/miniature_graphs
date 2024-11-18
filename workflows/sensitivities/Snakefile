@@ -29,8 +29,9 @@ n_graphs = {gen: get_n_graphs(params) for gen, params in generators}
 
 rule all:
     input:
-        "results/density/stats_distance.csv",
-        "results/density/metrics.csv"
+        "results/clustering/stats_distance.csv",
+        "results/density/stats_degree.csv",
+        "results/clustering/metrics.csv"
 
 rule seed:
     output:
