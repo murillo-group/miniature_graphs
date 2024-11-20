@@ -121,11 +121,15 @@ rule test_targets_scatter:
         with open(output[0],'w') as file:
             yaml.dump(parameters,file,default_flow_style=False)
 
+
+# TEST 
+file_path = lambda w, file: [f"{graphs_dir}/{w.graph_name}/reductions/{w.method}/{w.test_id}_{target_id}/graph_{graph_id}/{file}" for \
+            target_id in n_targets(config['methods'][w.method]['parameters']) for \
+            graph_id in range(config['methods'][w.method]['n_graphs'])]
+
 rule test_method_all:
     input:
-        drawings=lambda w: [f"{graphs_dir}/{w.graph_name}/reductions/{w.method}/{w.test_id}_{target_id}/graph_{graph_id}/drawing.png" for \
-                target_id in n_targets(config['methods'][w.method]['parameters']) for \
-                graph_id in range(config['methods'][w.method]['n_graphs'])]
+        drawings=lambda w: file_path(w,"drawing.png")
     output:
         "results/{graph_name}/{method}/{test_id}/metrics.csv"
     shell:
