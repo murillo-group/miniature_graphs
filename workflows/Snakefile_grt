@@ -1,6 +1,7 @@
 import yaml
 import pandas as pd 
 import numpy as np
+import os
 configfile: "config/config_grts.yaml"
 
 def cartesian_product(*arrays):
@@ -29,7 +30,9 @@ rule all:
         # "data/networks/giant_hamsterster/reductions/coarsening/test/graph_00/distribution_degree.yaml",
         # "data/networks/giant_hamsterster/reductions/coarsening/test/graph_00/distribution_distance.yaml",
         # "data/networks/giant_hamsterster/reductions/coarsening/test/graph_00/simulations/sir/test/qois.csv",
-        "results/giant_hamsterster/coarsening/test/metrics.csv"
+        "results/giant_hamsterster/coarsening/test/metrics.csv",
+        "results/giant_hamsterster/coarsening/test/distribution_degree.csv",
+        "results/giant_hamsterster/coarsening/test/distribution_distance.csv"
 
 rule graph_reduce:
     input:
@@ -127,10 +130,36 @@ file_path = lambda w, file: [f"{graphs_dir}/{w.graph_name}/reductions/{w.method}
             target_id in n_targets(config['methods'][w.method]['parameters']) for \
             graph_id in range(config['methods'][w.method]['n_graphs'])]
 
-rule test_method_all:
+# rule test_method_all:
+#     input:
+#         drawings=lambda w: file_path(w,"drawing.png"),
+#         metrics=lambda w: file_path(w,"metrics.yaml"),
+#         dists_degree=lambda w: file_path(w,"distribution_degree.yaml"),
+#         dists_distance=lambda w: file_path(w,"distribution_distance.yaml")
+#     output:
+#         "results/{graph_name}/{method}/{test_id}/metrics.csv",
+#         "results/{graph_name}/{method}/{test_id}/distribution_degree.yaml",
+#         "results/{graph_name}/
+#     run:
+
+rule graph_metrics_aggregate:
     input:
-        drawings=lambda w: file_path(w,"drawing.png")
-    output:
-        "results/{graph_name}/{method}/{test_id}/metrics.csv"
-    shell:
-        "touch output[0]"
+        files=lambda w: file_path(w,f"{w.path}.yaml")
+    output: 
+        "results/{graph_name}/{method}/{test_id}/{path}.csv"
+    run:
+        dicts = []
+        # Load every file into a dictionary
+        for file_name in input.files:
+            with open(file_name,'r') as file:
+                dicts.append(yaml.safe_load(file))
+
+        # Create dataframe
+        df = pd.DataFrame(dicts)
+        df['names'] = input.files 
+        df.set_index('names',inplace=True)
+        df.rename(lambda idx: os.path.dirname(idx),inplace=True)
+
+        # Save df
+        df.to_csv(output[0])
+
