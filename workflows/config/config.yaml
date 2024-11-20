@@ -15,3 +15,4 @@ simulations:
     gamma: 0.1 
     n_steps: 1000
     n_trials: 2
+

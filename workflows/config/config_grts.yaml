@@ -1,0 +1,12 @@
+n_trials: 10
+graphs_dir: "/mnt/home/martjor/repos/dev_pt/workflows/data/networks"
+test_id: "test"
+methods:
+  sparsification:
+    n_graphs: 3
+    parameters:
+      stretch: "10 ** np.linspace(1,2,10)"
+  coarsening:
+    n_graphs: 1
+    parameters:
+      alpha: "np.linspace(0.05,0.95,10)"

@@ -17,6 +17,8 @@ adjacency_file = snakemake.input[0]
 metrics_file = snakemake.output[0]
 
 functions = {
+    'n_nodes': lambda G: G.number_of_nodes(),
+    'n_edges': lambda G: G.number_of_edges(),
     'density': NX_DENSITY,
     'clustering': NX_CLUSTERING,
     'assortativity': NX_ASSORTATIVITY,
