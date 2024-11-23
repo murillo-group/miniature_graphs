@@ -1,5 +1,5 @@
 import numpy as np
-import pandas as pd
+from utils import save_dict
 
 # Load simulation runs
 results = np.load(snakemake.input[0])
@@ -10,7 +10,8 @@ qois_arrays = {
     'size': results[:,2,-1]
 }
 
-qois = []
+# Calculate QOIs
+qois = {}
 for quantity, array in qois_arrays.items():
     temp = {
         'mean': array.mean(0),
@@ -19,11 +20,11 @@ for quantity, array in qois_arrays.items():
         'max': array.max(0),
     }
     
-    # Store qois
-    qois.append(temp)
+    # Convert values to floats
+    temp = {key: float(metric) for key, metric in temp.items()}
     
-# Construct dataframe
-df = pd.DataFrame(qois,index=qois_arrays.keys())
-
-# Save dataframe to csv file
-df.to_csv(snakemake.output[0])
+    qois[quantity] = temp
+    
+# Save quantities of interest
+save_dict(snakemake.output[0],qois)
+    

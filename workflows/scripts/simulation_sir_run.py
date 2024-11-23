@@ -5,17 +5,17 @@ import yaml
 
 # Inputs
 adjacency_file = snakemake.input[0]
-parameters_file = snakemake.input[1]
+#parameters_file = snakemake.input[1]
 trajectories_file = snakemake.output[0]
-
-with open(parameters_file,'r') as file:
-    parameters = yaml.safe_load(file)
+parameters = snakemake.params.config
+# with open(parameters_file,'r') as file:
+#     parameters = yaml.safe_load(file)
     
 # Preamble
 tau = parameters['tau']
 gamma = parameters['gamma']
 n_steps = parameters['n_steps']
-n_trials = snakemake.params['n_trials']
+n_trials = parameters['n_trials']
 
 sir = sim.Sir(tau, gamma)
 
