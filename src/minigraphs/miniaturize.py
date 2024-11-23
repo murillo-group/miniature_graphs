@@ -490,7 +490,7 @@ class CoarseNET:
         '''
         self.G_coarse_ = self._G.to_directed()
         n = self.G_coarse_.number_of_nodes()
-        v = self.G_coarse_.number_of_edges()
+        n_edges = self.G_coarse_.number_of_edges()
         n_reduced = int(self._alpha * n)
         
         # Compute the eigenvalue and eigenvectors
@@ -505,18 +505,22 @@ class CoarseNET:
         score = self.__score()
         idx = np.argsort(score)
         
+        contractions = 0
         i = 0
-        while i <= n_reduced:
+        while (contractions < n_reduced) and (i < n_edges):
             # Retrieve edge according to sorting
             edge = edges[idx[i]]
             
             # Contract edges
             contract = self.__contract(edge)
             
-            i += 1
+            if contract:
+                contractions += 1
             
+            i += 1
+
         # Add removed edges to the original graph
-        self.G_coarse_.add_nodes_from(self.nodes_removed_)
+        #self.G_coarse_.add_nodes_from(self.nodes_removed_)
         
         
         
