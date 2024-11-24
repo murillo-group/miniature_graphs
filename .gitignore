@@ -13,9 +13,12 @@ src/params_batch.sh
 data/networks/**/*
 !data/networks/**/
 
-# Data from workflows
+# WORKFLOWS
 workflows/**/data/
 workflows/**/dag*.png
 workflows/**/logs/
 workflows/**/.snakemake/
 workflows/**/results/
+
+workflows/config/
+!workflows/config/template_*
