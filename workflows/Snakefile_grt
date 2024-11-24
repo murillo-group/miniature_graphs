@@ -28,35 +28,27 @@ samples = {method: generate_samples(config['methods'][method]) for method in met
 
 rule all:
     input:
-        # "results/giant_hamsterster/sparsification/graph_parameters.csv",
+        # "results/giant_hamsterster/sparsification/params_reduction.csv",
         # "results/giant_hamsterster/sparsification/graph_metrics.csv",
         # "results/giant_hamsterster/sparsification/graph_distribution_degree.csv",
         # "results/giant_hamsterster/sparsification/graph_distribution_distance.csv",
         # "results/giant_hamsterster/sparsification/sir_qois.csv"
         "results/giant_hamsterster/sparsification/plots/targets.png"
 
-rule summarize_graph:
+rule summarize:
     input:
-        files=lambda w: [f"data/networks/{w.graph}/{w.method}/{idx}/{w.dictionary}.yaml" for idx in samples[w.method].index]
+        files=lambda w:[f"data/networks/{w.graph}/{w.method}/{idx}/{w.file}.yaml" for idx in samples[w.method].index]
     output:
-        "results/{graph}/{method}/graph_{dictionary}.csv"
+        "results/{graph}/{method}/{file}.csv"
     script:
         "scripts/summarize.py"
 
-rule summarize_sir:
-    input:
-        files=lambda w: [f"data/networks/{w.graph}/{w.method}/{idx}/sir_qois.yaml" for idx in samples[w.method].index]
-    output:
-        "results/{graph}/{method}/sir_qois.csv"
-    script:
-        "scripts/summarize_sir.py"
-
 rule graph_reduce:
     input:
-        "data/networks/{graph}/adjacency.npz",
+        "{graph}/graph_adjacency.npz",
     output:
-        "data/networks/{graph}/{method}/{graph_idx}/adjacency.npz",
-        "data/networks/{graph}/{method}/{graph_idx}/parameters.yaml"
+        "{graph}/{method}/{graph_idx}/graph_adjacency.npz",
+        "{graph}/{method}/{graph_idx}/params_reduction.yaml"
     params:
         method_parameters=lambda w: samples[w.method].loc[w.graph_idx].to_dict()
     script:
@@ -64,15 +56,15 @@ rule graph_reduce:
 
 rule graph_metrics:
     input:
-        "{path}/adjacency.npz"
+        "{path}/graph_adjacency.npz"
     output:
-        "{path}/metrics.yaml"
+        "{path}/graph_metrics.yaml"
     script:
         "scripts/graph_characterize.py"
 
 rule graph_distribution:
     input:
-        "{path}/adjacency.npz"
+        "{path}/graph_adjacency.npz"
     output:
         "{path}/distribution_{quantity}.npy"
     script:
@@ -88,7 +80,7 @@ rule graph_distribution_metrics:
 
 rule model_simulate:
     input:
-        "{path}/adjacency.npz",
+        "{path}/graph_adjacency.npz",
     output:
         "{path}/trajectories_{model}.npy"
     params:
@@ -100,16 +92,18 @@ rule model_qois_sir:
     input:
         "{path}/trajectories_sir.npy"
     output:
-        "{path}/sir_qois.yaml"
+        "{path}/qois_sir.yaml"
     script:
         "scripts/model_qois_sir.py"
 
 rule plot_reduction:
     input:
-        parameters="results/{graph}/{method}/graph_parameters.csv",
-        metrics="results/{graph}/{method}/graph_metrics.csv",
-        degree="results/{graph}/{method}/graph_distribution_degree.csv",
-        distance="results/{graph}/{method}/graph_distribution_distance.csv"
+        expand("results/{{graph}}/{{method}}/{file}.csv",
+            file=["params_reduction",
+                  "graph_metrics",
+                  "distribution_degree",
+                  "distribution_distance",
+                  "qois_sir"])
     output:
         "results/{graph}/{method}/plots/targets.png"
     notebook:
