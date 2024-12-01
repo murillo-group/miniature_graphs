@@ -34,9 +34,7 @@ samples = {method: generate_samples(config['methods'][method]) for method in met
 
 rule all:
     input:
-        "data/networks/giant_hamsterster/graph.gexf",
-        "data/networks/giant_hamsterster/coarsening/graph_0/graph.gexf",
-        "results/giant_hamsterster/coarsening/gexf/"
+        "results/giant_hamsterster/drawing.png"
 
 rule summarize:
     input:
@@ -125,7 +123,7 @@ rule draw_original:
         "results/{graph}/drawing.png"
     shell:
         """
-        cp {input[0]} {output[0]}
+        mv {input[0]} {output[0]}
         """
 
 # rule draw_reductions:
@@ -210,5 +208,9 @@ rule graph_draw:
         "{path}/graph_adjacency.npz"
     output:
         "{path}/drawing.png"
-    script:
-        "scripts/graph_draw.py"
+    conda:
+        "envs/viz.yaml"
+    shell:
+        """
+        python -u scripts/graph_draw.py {input[0]} {output[0]}
+        """

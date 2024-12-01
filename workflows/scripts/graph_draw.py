@@ -1,29 +1,29 @@
-import matplotlib as plt 
-from utils import load_graph
-import graph_tool.all as gt
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt 
 import networkx as nx
+from fa2 import ForceAtlas2
+import sys
+from scipy.sparse import load_npz
+
+
 
 # Load the graph
-adjacency_file = snakemake.input[0]
-drawing_file = snakemake.output[0]
-graph = load_graph(adjacency_file)
+adjacency_file = sys.argv[1]
+drawing_file = sys.argv[2]
+graph = nx.from_scipy_sparse_matrix(load_npz(adjacency_file))
 
-# Get the edges
-edges = list(graph.edges)
+# Calculate layout using force atlas
+forceatlas2 = ForceAtlas2(gravity=1.0)
 
-# Construct graph-tools Graph
-H = gt.Graph(edges,directed=False)
+positions = forceatlas2.forceatlas2_networkx_layout(graph,
+                                                    pos=None,
+                                                    iterations=1000)
 
-# Plot graph
-fig, ax = plt.subplots(figsize=(3,3),dpi=300)
-artist = gt.graph_draw(H,mplfig=ax)
-artist.fit_view(yflip=True)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.set_title(fr"$|V| = {graph.number_of_nodes()},~\rho={nx.density(graph):.2e}$")
-
-for key in ax.spines.keys():
-    ax.spines[key].set_visible(False)
+# Draw Graph
+fig, ax = plt.subplots(figsize=(5,5),dpi=300)
+nx.draw_networkx_nodes(graph,positions,node_size=2,node_color="red",alpha=0.4)
+nx.draw_networkx_edges(graph,positions,edge_color="black",alpha=0.2)
+plt.axis('off')
 
 plt.savefig(drawing_file,bbox_inches='tight')
