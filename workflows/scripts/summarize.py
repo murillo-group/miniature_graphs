@@ -6,9 +6,15 @@ files = snakemake.input.files
 df_file = snakemake.output[0]
 
 # AGGREGATE DICTIONARIES
-parameters = [load_dict(file) for file in files]
-parameters = pd.DataFrame(parameters)
-parameters.rename(lambda idx: f"graph_{idx}",inplace=True)
+
+if "qois" in files[0]:
+    dfs = [pd.DataFrame(load_dict(file)).T.stack() for file in files]
+    df =pd.concat(dfs,axis=1).T 
+else:
+    dfs = [load_dict(file) for file in files]
+    df = pd.DataFrame(dfs)
+    
+df.rename(lambda idx: f"graph_{idx}",inplace=True)
 
 # SAVE DF
-parameters.to_csv(df_file)
+df.to_csv(df_file)
