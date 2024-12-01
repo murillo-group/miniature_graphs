@@ -6,7 +6,7 @@ from utils import load_graph, save_graph, save_dict
 def coarsening(graph,alpha):
     '''Coarsens the graph
     '''
-    coarsener = mini.CoarseNET(alpha,graphs)
+    coarsener = mini.CoarseNET(alpha,graph)
     coarsener.coarsen()
     
     return coarsener.G_coarse_
