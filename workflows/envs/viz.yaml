@@ -9,5 +9,5 @@ dependencies:
   - scipy
   - networkx=1.11
   - fa2
-  - yaml
+  - pyyaml
   
