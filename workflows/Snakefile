@@ -34,7 +34,8 @@ samples = {method: generate_samples(config['methods'][method]) for method in met
 
 rule all:
     input:
-        "results/giant_hamsterster/drawing.png"
+        "results/giant_hamsterster/drawing.png",
+        "results/giant_hamsterster/coarsening/drawings/"
 
 rule summarize:
     input:
@@ -126,19 +127,19 @@ rule draw_original:
         mv {input[0]} {output[0]}
         """
 
-# rule draw_reductions:
-#     input:
-#         files=lambda w: [f"data/networks/{w.graph}/{w.method}/{graph_idx}/drawing.png" for graph_idx in samples[w.method].index]
-#     output:
-#         directory("results/{graph}/{method}/drawings/")
-#     params:
-#         names=lambda w: samples[w.method].index        
-#     run:
-#         os.makedirs(output[0],exist_ok=True)
+rule draw_reductions:
+    input:
+        files=lambda w: [f"data/networks/{w.graph}/{w.method}/{graph_idx}/drawing.png" for graph_idx in samples[w.method].index]
+    output:
+        directory("results/{graph}/{method}/drawings/")
+    params:
+        names=lambda w: samples[w.method].index        
+    run:
+        os.makedirs(output[0],exist_ok=True)
 
-#         # Move files
-#         for file,name in zip(input.files,params.names):
-#             shutil.copy(file,os.path.join(output[0],f"{name}.png"))
+        # Move files
+        for file,name in zip(input.files,params.names):
+            shutil.copy(file,os.path.join(output[0],f"{name}.png"))
 
 rule get_gexf:
     input:
@@ -208,9 +209,11 @@ rule graph_draw:
         "{path}/graph_adjacency.npz"
     output:
         "{path}/drawing.png"
+    log:
+        "{path}/drawing.log"
     conda:
         "envs/viz.yaml"
     shell:
         """
-        python -u scripts/graph_draw.py {input[0]} {output[0]}
+        python -u scripts/graph_draw.py {input[0]} {output[0]} &> {log}
         """
