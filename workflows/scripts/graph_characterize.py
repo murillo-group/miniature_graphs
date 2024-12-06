@@ -1,7 +1,9 @@
 from minigraphs.miniaturize import NX_ASSORTATIVITY, NX_CLUSTERING, NX_DENSITY
 import networkx as nx 
 from yaml import dump
-from utils import load_graph
+from scipy.sparse import load_npz
+from scipy.sparse.linalg import eigs
+from numpy import real
 
 def graph_components(G):
     # Get connected components of the graph
@@ -24,15 +26,22 @@ functions = {
     'assortativity': NX_ASSORTATIVITY,
 }
 
-# LOAD GRAPH
-graph = load_graph(adjacency_file)
+# LOAD ADJACENCY MATRIX AND GENERATE GRAPH
+adjacency = load_npz(adjacency_file)
+adjacency = adjacency._asfptype()
+graph = nx.from_scipy_sparse_array(adjacency)
 
 # CALCULATE METRICS
 components = graph_components(graph)
 
+evals,_ = eigs(adjacency,2)
+print(evals)
+
 metrics = {metric: func(graph) for metric, func in functions.items()}
 metrics['n_components'] = len(components)
 metrics['connectivity'] = components[0].number_of_nodes() / graph.number_of_nodes()
+metrics['eig_1'] = float(real(evals[0]))
+metrics['eig_2'] = float(real(evals[1]))
 
 # WRITE METRICS
 with open(metrics_file,'w') as file:
