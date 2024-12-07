@@ -1,15 +1,44 @@
 #!/usr/bin/env python3
-from minigraphs import Metropolis
+from minigraphs.miniaturize import MH
 from numpy import log
 import pandas as pd 
 import networkx as nx
 import sys
 import os
 import yaml
+import logging
 '''Calculates the parameters for the specified graph
 '''
 
-def params(metrics_file,
+# Get the log file from Snakemake
+log_file = snakemake.log[0]
+
+# Configure logging to write to the Snakemake log file
+logging.basicConfig(
+    filename=log_file,
+    level=logging.DEBUG,  # Capture all logs (DEBUG and above)
+    format="%(asctime)s [%(levelname)s]: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+# Redirect stdout and stderr to logging
+class StreamToLogger:
+    def __init__(self, logger, log_level):
+        self.logger = logger
+        self.log_level = log_level
+
+    def write(self, message):
+        if message.strip():  # Ignore empty lines
+            self.logger.log(self.log_level, message.strip())
+
+    def flush(self):
+        pass  # Required for compatibility with sys.stdout/sys.stderr
+
+# Replace stdout and stderr with the logger
+sys.stdout = StreamToLogger(logging.getLogger(), logging.INFO)
+sys.stderr = StreamToLogger(logging.getLogger(), logging.ERROR)
+
+def weights(metrics_file,
            params_file,
            shrinkage,
            n_changes,
@@ -50,13 +79,13 @@ def params(metrics_file,
         
         # Construct replica
         replica = MH(funcs_metrics,
-                     schedule=lambda beta: 0
+                     schedule=lambda beta:0,
                      n_changes=n_changes)
         
         # Transform ER graph
         G = nx.erdos_renyi_graph(n_vertices,metrics_target['density'])
         replica.transform(G,
-                          metrics_target
+                          metrics_target,
                           n_iterations=n_iterations)
 
         # Retrieve trajectories
@@ -75,7 +104,7 @@ def params(metrics_file,
         # Transform ER graph
         G = nx.erdos_renyi_graph(n_vertices,metrics_target['density'])
         replica.transform(G,
-                          metrics_target
+                          metrics_target,
                           n_iterations=n_iterations)
 
         df = replica.trajectories_
@@ -96,4 +125,12 @@ def params(metrics_file,
 
     # Save to yaml
     with open(params_file,'w') as file:
-        yaml.dump(params,file,default_flow_style=False)
+        yaml.dump(params.to_dict(),file,default_flow_style=False)
+        
+weights(snakemake.input[0],
+        snakemake.output[0],
+        0.9,
+        10,
+        30,
+        100)
+    

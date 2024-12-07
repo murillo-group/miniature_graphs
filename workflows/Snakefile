@@ -34,8 +34,7 @@ samples = {method: generate_samples(config['methods'][method]) for method in met
 
 rule all:
     input:
-        "results/giant_hamsterster/drawing.png",
-        "results/giant_hamsterster/coarsening/drawings/"
+        expand("results/giant_hamsterster/{method}/plots/metrics_01.png",method=["sparsification","coarsening"])
 
 rule summarize:
     input:
@@ -44,6 +43,19 @@ rule summarize:
         "results/{graph}/{method}/{file}.csv"
     script:
         "scripts/summarize.py"
+
+rule miniaturization_params:
+    input:
+        "data/networks/{graph}/metrics.yaml"
+    output:
+        "data/networks/{graph}/miniaturization/weights_{shrinkage_id}.yaml"
+    resources:
+        runtime=120,
+        mem_mb=2000
+    log:
+        "logs/miniaturization/{graph}/weights_{shrinkage_id}.log"
+    script:
+        "scripts/miniaturization_params.py"
 
 rule graph_reduce:
     input:
