@@ -6,6 +6,7 @@ import networkx as nx
 import sys
 import os
 import yaml
+from utils import StreamToLogger
 import logging
 '''Calculates the parameters for the specified graph
 '''
@@ -20,19 +21,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s]: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-
-# Redirect stdout and stderr to logging
-class StreamToLogger:
-    def __init__(self, logger, log_level):
-        self.logger = logger
-        self.log_level = log_level
-
-    def write(self, message):
-        if message.strip():  # Ignore empty lines
-            self.logger.log(self.log_level, message.strip())
-
-    def flush(self):
-        pass  # Required for compatibility with sys.stdout/sys.stderr
 
 # Replace stdout and stderr with the logger
 sys.stdout = StreamToLogger(logging.getLogger(), logging.INFO)
