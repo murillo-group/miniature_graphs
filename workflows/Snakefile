@@ -50,22 +50,44 @@ rule miniaturization_params:
     input:
         "data/networks/{graph}/metrics.yaml"
     output:
-        "data/networks/{graph}/miniaturization/weights_{shrinkage_id}.yaml"
+        "data/networks/{graph}/miniaturization/parameters_{id}.yaml"
     resources:
         runtime=120,
         mem_mb=2000
     log:
-        "logs/miniaturization/{graph}/weights_{shrinkage_id}.log"
+        "logs/{graph}/reduction/miniaturization/parameters_{id}/parameters.log"
     script:
         "scripts/miniaturization_params.py"
 
 rule miniaturization:
     input:
-        "data/networks/{graph}/graph_adjacency.npz",
-        "data/networks/{graph}/miniaturization/weights_{shrinkage_id}.yaml"
+        "data/networks/{graph}/metrics.yaml",
+        "data/networks/{graph}/miniaturization/parameters_{id}.yaml"
     output:
-        "data/networks/{graph}/miniaturization/graph_{shrinkage_id}_{idx}/graph_adjacency.npz",
-        directory("data/networks/{graph}/miniaturization/graph_{shrinkage_id}_{idx}/trajectories")
+        "data/networks/{graph}/miniaturization/graph_{id}_{idx}/graph_adjacency.npz",
+        directory("data/networks/{graph}/miniaturization/graph_{id}_{idx}/trajectories")
+    params:
+        shrinkage=0.9,
+        n_changes=10,
+        n_steps=1000,
+        n_substeps=50
+    resources:
+        tasks=6,
+        mpi="mpiexec"
+    log:
+        "logs/{graph}/reduction/miniaturization/parameters_{id}/graph_{idx}_min.log"
+    shell:
+        """
+        {resources.mpi} -n {resources.tasks} scripts/miniaturize.py 
+            {input[0]}
+            {input[1]}
+            {output[0]}
+            {output[1]}
+            --n_changes {params.n_changes}
+            --n_steps {params.n_steps}
+            --n_substeps {params.n_substeps}
+        """
+
 
 rule graph_reduce:
     input:
