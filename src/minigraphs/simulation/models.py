@@ -118,6 +118,8 @@ class Sir:
         '''
         n_agents = A.shape[0]
         self.beta = self.tau / n_agents
+        if self.beta > 1.0:
+            raise ValueError("Beta must be smaller or equal than 1.0")
         
         for i in range(n_agents):
             # Check current agent's state
