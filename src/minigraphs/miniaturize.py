@@ -295,7 +295,7 @@ class MH:
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        size_history = 10000
+        size_history = n_iterations or 10000
         self._trajectories_ = np.zeros((size_history,self._n_states+3))
         
         #  Begin optimization
