@@ -117,6 +117,7 @@ class Sir:
         '''Updates the states of the agents
         '''
         n_agents = A.shape[0]
+        self.beta = self.tau / n_agents
         
         for i in range(n_agents):
             # Check current agent's state
@@ -147,7 +148,7 @@ class Sir:
                 states_new[i] = 2
                 
     def __p_infection(self,n_contacts: int) -> float:
-            p = n_contacts and (n_contacts * self.tau * ((1-self.tau)**(n_contacts-1)))
+            p = n_contacts and (n_contacts * self.beta * ((1-self.beta)**(n_contacts-1)))
             return p
             
                 
