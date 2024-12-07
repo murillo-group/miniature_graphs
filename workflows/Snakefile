@@ -86,6 +86,7 @@ rule miniaturization:
             --n_changes {params.n_changes}
             --n_steps {params.n_steps}
             --n_substeps {params.n_substeps}
+            --log-file {log[0]}
         """
 
 
