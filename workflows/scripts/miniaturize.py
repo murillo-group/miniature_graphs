@@ -15,30 +15,48 @@ mpiexec -n $number_of_nodes python parallel_tempering_main.py
 import click
 from mpi4py import MPI
 import numpy as np
-from minigraphs import Metropolis
+from minigraphs.miniaturize import MH
 import networkx as nx
 from scipy.sparse import save_npz
 import os
 import sys
-import json
+import yaml
 import pandas as pd
-import datetime
+from utils import StreamToLogger
+import logging
 
 @click.command()
-@click.argument('metrics_file_name',type=click.Path(exists=True))
-@click.argument('params_file_name',type=click.Path(exists=True))
-@click.argument('frac_size',type=click.INT)
-@click.option('--output_dir',default='.',help='Output directory')
+@click.argument('metrics-file',type=click.Path(exists=True))
+@click.argument('params-file',type=click.Path(exists=True))
+@click.argument('adjacency-file',type=click.Path())
+@click.argument('trajectories-dir',type=click.Path())
+@click.argument('shrinkage',type=click.FLOAT)
 @click.option('--n_changes',default=10,help='Number of changes proposed at each iteration')
 @click.option('--n_steps',default=20000,help='Number of miniaturization steps')
 @click.option('--n_substeps',default=200,help='Number of miniaturization substeps')
-def miniaturize(metrics_file_name,
-                params_file_name,
-                frac_size,
-                output_dir,
+@click.option('--log-file',default=None)
+def miniaturize(metrics_file,
+                params_file,
+                adjacency_file,
+                trajectories_dir,
+                shrinkage,
                 n_changes,
                 n_steps,
-                n_substeps):
+                n_substeps,
+                log_file):
+    
+    # Configure logging to write to the Snakemake log file
+    logging.basicConfig(
+        filename=log_file,
+        level=logging.DEBUG,  # Capture all logs (DEBUG and above)
+        format="%(asctime)s [%(levelname)s]: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Replace stdout and stderr with the logger
+    sys.stdout = StreamToLogger(logging.getLogger(), logging.INFO)
+    sys.stderr = StreamToLogger(logging.getLogger(), logging.ERROR)
+    
     ##### INITIALIZE MPI #####
     #========================#
     comm = MPI.COMM_WORLD
@@ -51,24 +69,23 @@ def miniaturize(metrics_file_name,
         raise Exception('An even number of cores is required')
 
     # Target metrics
-    with open(metrics_file_name,'r') as metrics_file:
-        metrics = json.load(metrics_file)
+    with open(metrics_file,'r') as file:
+        metrics = yaml.safe_load(file)
     
     # Miniaturization Parameters
-    with open(params_file_name,'r') as params_file:
-        params = json.load(params_file)
+    with open(params_file,'r') as file:
+        params = yaml.safe_load(file)
 
     ##### INITIALIZE PARALLEL TEMPERING REPLICAS #####
     #================================================#
     # Iteration parameters
-    n_cycles = int(np.ceil(n_steps / n_substeps))
     cycles = [n_substeps] * (n_steps // n_substeps)
     remainder = n_steps % n_substeps
     if remainder != 0:
         cycles += [remainder]
 
     # Replica parameters
-    n_vertices = int((frac_size/1000) * metrics['n_vertices'])
+    n_vertices = int((1-shrinkage) * metrics['n_vertices'])
     beta_arr = np.array([1/8,1/4,1/2,1,2,4])
     B0 = beta_arr[rank] * params['beta']
     metrics_funcs = {
@@ -90,23 +107,20 @@ def miniaturize(metrics_file_name,
 
     # Display Message
     if rank == 0:
-        print(f"Miniaturizing graph at {metrics_file_name} to size {n_vertices} ({frac_size/10}% miniaturization)...")
+        print(f"Miniaturizing graph to size {n_vertices} ({shrinkage * 100}% miniaturization)...")
         print(f"Beta opt: {params['beta']}\n")
         print(f"\t - Target metrics: {metrics_target}")
         print(f"\t - Weights: {weights}")
         print(f"\t - Functions: {metrics_funcs}\n")
 
     # Initialize replica
-    replica = Metropolis(B0,
-                        metrics_funcs,
-                        n_substeps,
-                        metrics_weights=weights,
-                        n_changes=n_changes
-                        )
+    replica = MH(metrics_funcs,
+                 schedule=lambda beta:0,
+                 n_changes=n_changes,
+                 weights=weights)
 
     def exchange(E0: float,
-                B0: float
-                ) -> float:
+                 B0: float) -> float:
         '''Replicas exchange temperatures according to their energies
         '''
         def prob(E0,E1,B0,B1) -> float:
@@ -158,25 +172,25 @@ def miniaturize(metrics_file_name,
         return B0
 
     list_trajectories = []
-    for cycle,steps in enumerate(cycles):
+    for cycle, steps in enumerate(cycles):
         if rank == 0:
             print(f"\nCycle {cycle+1}/{len(cycles)} <<<\n")
             verbose = True 
         else:
             verbose = False
             
-        # Update number of iterations for the last cycle
-        replica.n_iterations = steps
-            
-        # Transform graph
-        replica.transform(G,metrics_target)
+        # Optimize graph
+        replica.transform(G,
+                          metrics_target,
+                          n_iterations=steps)
         
         # Swap temperatures
         trajectories = replica.trajectories_.copy()
         E0 = trajectories['Energy'].iat[-1]
         B0 = replica.beta
 
-        replica.beta = exchange(E0,B0)
+        # Update schedule
+        replica.schedule = lambda beta: exchange(E0,B0)
         
         G = replica.graph_
         
@@ -186,24 +200,7 @@ def miniaturize(metrics_file_name,
     # Create complete trajectories
     trajectories_all = pd.concat(list_trajectories)
 
-    # Create output directory
-    now = datetime.datetime.now()
-    date = now.strftime("%Y-%m-%d")
-
-    counter = 0
-    output_file_exists = True
-    while output_file_exists:
-        output_subdir = os.path.join(output_dir,f"{frac_size:03d}_{date}_{counter:02d}")
-        
-        output_file_exists = os.path.exists(output_subdir)
-        counter += 1
-
-    if rank == 0:
-        os.makedirs(output_subdir)
-        
-    comm.Barrier()
-
-    # store your energy and rank
+    # Store your energy and rank
     my_energy_core = np.array([(E0,rank)],dtype=[('energy',np.float64), ('rank',np.int32)])
     # allocate memory for min energy and rank
     min_energy_core = np.empty(1,dtype=[('energy',np.float64), ('rank',np.int32)])
@@ -212,19 +209,18 @@ def miniaturize(metrics_file_name,
     comm.Allreduce([my_energy_core, 1, MPI.DOUBLE_INT], [min_energy_core, 1, MPI.DOUBLE_INT], op=MPI.MINLOC)
 
     if rank == min_energy_core['rank']:
-        file_name_graph = os.path.join(output_subdir,'graph.npz')
-        save_npz(file_name_graph,nx.to_scipy_sparse_array(replica.graph_))
+        # Store final adjacency
+        save_npz(adjacency_file,nx.to_scipy_sparse_array(replica.graph_))
         
-        # Store final metrics
-        metrics_out = dict(trajectories_all.iloc[-1])
-        file_name_metrics_out = os.path.join(output_subdir,'metrics.json')
-        with open(file_name_metrics_out,'w+') as json_file:
-            json.dump(metrics_out,json_file,indent=4)
-
+        # Create directory for trajectories
+        os.makedirs(trajectories_dir)
+        
     # Store trajectories
-    file_name_trajectory = os.path.join(output_subdir,f"replica_{rank}.parquet")
-    trajectories_all.to_parquet(file_name_trajectory,engine='pyarrow',compression='snappy')
-
+    comm.Barrier()
+    trajectories_all.to_parquet(f"{trajectories_dir}/replica_{rank}.parquet",
+                                engine='pyarrow',
+                                compression='snappy')
+    
 if __name__ == '__main__':
     miniaturize()
 

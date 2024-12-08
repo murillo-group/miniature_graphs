@@ -72,22 +72,19 @@ rule miniaturization:
         n_steps=1000,
         n_substeps=50
     resources:
+        runtime=60,
+        mem_mb=2000,
         tasks=6,
         mpi="mpiexec"
     log:
         "logs/{graph}/reduction/miniaturization/parameters_{id}/graph_{idx}_min.log"
     shell:
-        """
-        {resources.mpi} -n {resources.tasks} scripts/miniaturize.py 
-            {input[0]}
-            {input[1]}
-            {output[0]}
-            {output[1]}
-            --n_changes {params.n_changes}
-            --n_steps {params.n_steps}
-            --n_substeps {params.n_substeps}
-            --log-file {log[0]}
-        """
+        "{resources.mpi} -n {resources.tasks} scripts/miniaturize.py"
+        " {input[0]} {input[1]} {output[0]} {output[1]} {params.shrinkage}"
+        " --n_changes {params.n_changes}"
+        " --n_steps {params.n_steps}"
+        " --n_substeps {params.n_substeps}"
+        " --log-file {log[0]}"
 
 
 rule graph_reduce:

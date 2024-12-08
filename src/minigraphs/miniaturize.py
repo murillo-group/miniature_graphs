@@ -161,7 +161,7 @@ class MH:
             elif rate < 0.20:
                 f = 0.99
                 
-        return self.__beta * f
+        return self.beta * f
     
     def __stop_convergence(self,step):
         '''Provide a convergence criterion based on the proximity to the metrics
@@ -246,7 +246,7 @@ class MH:
     def __accept_change(self,E0: float, E1:float) -> bool:
         '''Accepts proposed change according to the Metropolis ratio
         '''
-        return np.exp((E0-E1)*self.__beta) >= np.random.uniform()
+        return np.exp((E0-E1)*self.beta) >= np.random.uniform()
 
             
     def transform(self, 
@@ -279,7 +279,7 @@ class MH:
         if (not self.__schedule_is_default) and (beta is not None):
             print("Schedule provided - ignoring initial value for beta")
         elif beta is not None:
-            self.__beta = beta 
+            self.beta = beta 
         elif self.__schedule_is_default:
             raise ValueError("Initial beta not provided for adaptive scheduling")
         
@@ -306,7 +306,7 @@ class MH:
                 print(f"Iteration {step+1}/{n_iterations}\n")
                 
             # Obtain temperature according to schedule
-            self.__beta = self.schedule(step)
+            self.beta = self.schedule(step)
                 
             # Change the graph and calculate energy
             self.__make_change()
@@ -332,7 +332,7 @@ class MH:
             
             # Record state
             self._trajectories_[self.__idx_history][0] = step
-            self._trajectories_[self.__idx_history][1] = self.__beta
+            self._trajectories_[self.__idx_history][1] = self.beta
             self._trajectories_[self.__idx_history][2] = self.__E0
             self._trajectories_[self.__idx_history][3:] = self.__m0
             
