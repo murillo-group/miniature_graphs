@@ -7,6 +7,10 @@ setup(
     install_requires=[          
         "numpy",
         "pandas",
-        "scipy"
+        "scipy",
+        "matplotlib",
+        "scikit-learn",
+        "networkx",
+        "click"
     ],
 )

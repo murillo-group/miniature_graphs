@@ -19,8 +19,8 @@ from abc import ABC,abstractmethod
 from collections import deque
 
 NX_DENSITY = lambda G: nx.density(G)
-NX_AVERAGE_CLUSTERING = lambda G: nx.average_clustering(G)
-NX_DEGREE_ASSORTATIVITY = lambda G: nx.degree_assortativity_coefficient(G)
+NX_CLUSTERING = lambda G: nx.average_clustering(G)
+NX_ASSORTATIVITY = lambda G: nx.degree_assortativity_coefficient(G)
 
 def sigmoid(x,x0,k):
     return 1 / (1 + np.exp(-k*(x-x0)))
@@ -91,9 +91,8 @@ class MH:
     '''
 
     def __init__(self,
-                 schedule: Callable, 
                  metrics,
-                 n_iterations: int,
+                 schedule: Callable | None = None, 
                  weights=None,
                  n_changes: int = 1,
                  func_loss = None,
@@ -101,7 +100,12 @@ class MH:
         '''Instantiates the MH annealer
         '''
         # Store Annealing schedule
-        self.schedule = schedule
+        if schedule is None:
+            self.schedule = self.__schedule_adaptive
+            self.__schedule_is_default = True
+        else:
+            self.schedule = schedule
+            self.__schedule_is_default = False
         
         # Store metrics functions
         self._metrics = metrics 
@@ -118,30 +122,14 @@ class MH:
             raise ValueError("Specified weights don't match corresponding metrics")
         
         # Store number of changes per step
-        self.n_iterations = n_iterations
         self.n_changes = n_changes
+        self.__window_size = 10
         
         # Store loss function
         if func_loss is None:
             self.func_loss = lambda weights, metrics_diff: np.sum(weights * np.abs(metrics_diff))
         else:
             self.func_loss = func_loss
-        
-    @property 
-    def __state(self):
-        state = np.zeros((self._n_states+2,))
-            
-        # Store current graph state
-        state[0] = self.__beta
-        state[1] = self.__E0
-        state[2:] = self.__m0
-            
-        return state
-
-    @property
-    def __beta(self):
-        # Evaluate beta at the current time step
-        return self.schedule(self.__step)
         
     @property
     def metrics(self):
@@ -153,9 +141,42 @@ class MH:
     
     @property
     def trajectories_(self):
-        names = ['Beta','Energy'] + list(self._targets_names) 
-        return pd.DataFrame(self._trajectories_,columns=names)
+        names = ['Step','Beta','Energy'] + list(self._targets_names)
+        df = pd.DataFrame(self._trajectories_,columns=names)
+        df.set_index('Step',inplace=True)
+        
+        return df
     
+    def __schedule_adaptive(self,step):
+        '''Provides an adaptive scheduling
+        '''
+        f = 1.0
+        if step >= self.__window_size:
+            # Calculate current acceptance rate
+            rate = self.__window.sum() / self.__window_size
+            
+            # Adjust rate
+            if rate > 0.40:
+                f = 1.01
+            elif rate < 0.20:
+                f = 0.99
+                
+        return self.beta * f
+    
+    def __stop_convergence(self,step):
+        '''Provide a convergence criterion based on the proximity to the metrics
+        '''
+        window_size = 100
+        
+        if step <= window_size:
+            flag = False
+        else:
+            flag = self.__E0 < self.__epsilon
+            
+        return flag
+        
+                
+        
     def __get_metrics(self):
         '''Calculates the metrics of a graph
         '''
@@ -225,12 +246,26 @@ class MH:
     def __accept_change(self,E0: float, E1:float) -> bool:
         '''Accepts proposed change according to the Metropolis ratio
         '''
-        return np.exp((E0-E1)*self.__beta) >= np.random.uniform()
+        return np.exp((E0-E1)*self.beta) >= np.random.uniform()
 
             
-    def transform(self, graph_seed, targets,verbose=False) -> None:
+    def transform(self, 
+                  graph_seed, 
+                  targets,
+                  n_iterations=None,
+                  epsilon=None,
+                  beta: int=None,
+                  verbose=False) -> None:
         '''Miniaturizes seed graph
         '''
+        if (n_iterations is None) and (epsilon is None):
+            raise ValueError("Exactly one stopping criterion must be provided")
+        elif epsilon is None:
+            stop = lambda step: step >= n_iterations
+        elif n_iterations is None:
+            self.__epsilon = epsilon
+            stop = self.__stop_convergence
+        
         # Verify matching keys
         self._targets_names = set(self.metrics).intersection(set(targets.keys()))
         self._n_states = len(self._targets_names)
@@ -240,6 +275,17 @@ class MH:
             self._targets = np.array([targets[key] for key in self._targets_names])
         else:
             raise LookupError(f"No valid targets specified for annealer with metrics {self.metrics}\n")
+        
+        if (not self.__schedule_is_default) and (beta is not None):
+            print("Schedule provided - ignoring initial value for beta")
+        elif beta is not None:
+            self.beta = beta 
+        elif self.__schedule_is_default:
+            raise ValueError("Initial beta not provided for adaptive scheduling")
+        
+        # Create window to keep track of acceptance
+        self.__window = np.zeros(self.__window_size,dtype=bool)
+        self.__idx_window = 0
 
         # Initialize graph
         self.graph_ = deepcopy(graph_seed)
@@ -249,14 +295,18 @@ class MH:
         self.__E0 = self.__energy(self.__m0)
         
         # Initialize trajectories
-        self._trajectories_ = np.zeros((self.n_iterations,
-                                         self._n_states+2))
+        size_history = n_iterations or 10000
+        self._trajectories_ = np.zeros((size_history,self._n_states+3))
         
-        # Iterate
-        self.__step = 0
-        while self.__step < self.n_iterations:
-            if verbose is True:
-                print(f"Iteration {self.__step+1}/{self.n_iterations}\n")
+        #  Begin optimization
+        self.__idx_history = 0
+        step = 0
+        while not stop(step):
+            if (verbose is True) and (n_iterations is not None):
+                print(f"Iteration {step+1}/{n_iterations}\n")
+                
+            # Obtain temperature according to schedule
+            self.beta = self.schedule(step)
                 
             # Change the graph and calculate energy
             self.__make_change()
@@ -268,34 +318,68 @@ class MH:
                 # Update metrics and energy
                 self.__m0 = m1
                 self.__E0 = E1
+                
+                self.__window[self.__idx_window] = True
             else:
                 # Reverse changes
                 for i in range(len(self._actions)):
                     self._actions.pop().undo(self.graph_)
+                    
+                self.__window[self.__idx_window] = False
+            
+            # Update window index
+            self.__idx_window = (self.__idx_window + 1) % self.__window_size
             
             # Record state
-            self._trajectories_[self.__step][0] = self.__beta
-            self._trajectories_[self.__step][1] = self.__E0
-            self._trajectories_[self.__step][2:] = self.__m0
-            self.__step += 1
+            self._trajectories_[self.__idx_history][0] = step
+            self._trajectories_[self.__idx_history][1] = self.beta
+            self._trajectories_[self.__idx_history][2] = self.__E0
+            self._trajectories_[self.__idx_history][3:] = self.__m0
+            
+            # Update indices
+            self.__idx_history = (self.__idx_history + 1) % size_history
+            step += 1
+            
+        # Store only required iterations
+        if step <= size_history:
+            self._trajectories_ = self._trajectories_[0:step]
+        else:
+            # Slice array
+            stack  = (
+                self._trajectories_[self.__idx_history:],
+                self._trajectories_[0:self.__idx_history]
+            )
+            
+            self._trajectories_ = np.vstack(stack)
+            
+        
     
     @staticmethod
-    def plot_trajectories(data,targets):
+    def plot_trajectories(data,targets=None):
+        # Number of trajectories
         trajectories = data.columns
         n_trajectories = len(trajectories)
         
+        # Instantiate figure and axes
         fig, axes = plt.subplots(n_trajectories,1,dpi=300,figsize=(5,n_trajectories))
         
         for i,trajectory in enumerate(trajectories):
+            # Plot trajectory
             axes[i].plot(data[trajectory],linewidth=1.0)
-            if (trajectory != 'Beta') and (trajectory != 'Energy'):
+            
+            # Plot targets if specified
+            if (trajectory != 'Beta') and (trajectory != 'Energy') and (not targets is None):
                 axes[i].axhline(targets[trajectory],linestyle='--',linewidth=0.5,color='red')
+                
+            # Label axes
             axes[i].set_ylabel(trajectory)
             
             if i != (n_trajectories-1):
                 axes[i].set_xticklabels([])
                 
-        axes[n_trajectories-1].set_xlabel("Iteration")
+        axes[n_trajectories-1].set_xlabel("Step")
+        
+        return axes
             
             
 class CoarseNET:
@@ -406,7 +490,7 @@ class CoarseNET:
         '''
         self.G_coarse_ = self._G.to_directed()
         n = self.G_coarse_.number_of_nodes()
-        v = self.G_coarse_.number_of_edges()
+        n_edges = self.G_coarse_.number_of_edges()
         n_reduced = int(self._alpha * n)
         
         # Compute the eigenvalue and eigenvectors
@@ -421,18 +505,22 @@ class CoarseNET:
         score = self.__score()
         idx = np.argsort(score)
         
+        contractions = 0
         i = 0
-        while i <= n_reduced:
+        while (contractions < n_reduced) and (i < n_edges):
             # Retrieve edge according to sorting
             edge = edges[idx[i]]
             
             # Contract edges
             contract = self.__contract(edge)
             
-            i += 1
+            if contract:
+                contractions += 1
             
+            i += 1
+
         # Add removed edges to the original graph
-        self.G_coarse_.add_nodes_from(self.nodes_removed_)
+        #self.G_coarse_.add_nodes_from(self.nodes_removed_)
         
         
         

@@ -117,6 +117,9 @@ class Sir:
         '''Updates the states of the agents
         '''
         n_agents = A.shape[0]
+        self.beta = self.tau / n_agents
+        if self.beta > 1.0:
+            raise ValueError("Beta must be smaller or equal than 1.0")
         
         for i in range(n_agents):
             # Check current agent's state
@@ -124,7 +127,7 @@ class Sir:
             
             if state == 0:
                 # Obtain neighbors of the ith agent
-                row = A.getrow(i)
+                row = A._getrow(i)
                 
                 # Count number of infected neighbors
                 n_infected = int((states_old[row.indices] == 1).sum())
@@ -147,7 +150,7 @@ class Sir:
                 states_new[i] = 2
                 
     def __p_infection(self,n_contacts: int) -> float:
-            p = n_contacts and (n_contacts * self.tau * ((1-self.tau)**(n_contacts-1)))
+            p = n_contacts and (n_contacts * self.beta * ((1-self.beta)**(n_contacts-1)))
             return p
             
                 
