@@ -52,8 +52,10 @@ rule miniaturization_params:
     output:
         "data/networks/{graph}/miniaturization/parameters_{id}.yaml"
     resources:
-        runtime=120,
+        runtime=10,
         mem_mb=2000
+    conda:
+        "envs/miniaturize.yaml"
     log:
         "logs/{graph}/reduction/miniaturization/parameters_{id}/parameters.log"
     script:
